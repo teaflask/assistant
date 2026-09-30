@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+      The motion primitives' hardest host, distilled (TVC-102;
+      artifact-loading, TVC-103): a strict-CSP page — no style-src at
+      all, so neither a <style> tag nor an inline style could ever
+      apply, and no connect-src, so nothing here can fetch — hosting
+      the BUILT script-tag artifact (/dist/element/assistant.js, the
+      exact bytes a customer's page loads). The keyless
+      <teaflask-assistant> below runs the artifact's real mount path:
+      an open shadow root whose ONLY stylesheet is the constructed
+      sheet baked at build time (rem→px transformed), plus the
+      host-attribute reflection bridge. If the animations run here, the
+      artifact's own sheet carried them; if the host kill switch stops
+      them from OUTSIDE the boundary, the artifact's own bridge works.
+      shadow-probe.tsx renders the probe scene into the artifact's
+      wrapper and TVC-103 pins that the artifact, not a reproduction,
+      is what executed.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'none'"
+    />
+    <title>Shadow DOM motion probe</title>
+  </head>
+  <body>
+    <div id="probe-ancestor">
+      <teaflask-assistant id="probe-host"></teaflask-assistant>
+    </div>
+    <!-- The real artifact, exactly as the CDN would serve it — evaluated
+         before the probe module (document order). The probe does not
+         rest on that ordering: it awaits the element's definition and
+         polls for the artifact-made shadow mount before rendering. -->
+    <script type="module" src="/dist/element/assistant.js"></script>
+    <script
+      type="module"
+      src="/fixtures/transcript/out/shadow-probe.js"
+    ></script>
+  </body>
+</html>

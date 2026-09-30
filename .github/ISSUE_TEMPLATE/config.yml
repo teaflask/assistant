@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://docs.teaflask.com
+    about: Guides and the API reference for the assistant.

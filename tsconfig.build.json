@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src"],
+  // The element layer ships only inside the bundled script-tag artifact
+  // (scripts/build-element.mjs); the npm dist must not carry it.
+  "exclude": ["src/element.ts", "src/element"]
+}

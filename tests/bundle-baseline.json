@@ -1,0 +1,7 @@
+{
+  "$comment": "Committed baseline for the script-tag element bundle — the bytes a customer's embedded page fetches (eager shell = assistant.js plus static chunks with the real CSS baked in; pool = lazy chunks). TVC-162 gates each measure within a pinned band of this file (tests/element-bundle-weight.test.ts). Refresh with `npm run baseline:bundle`.",
+  "measuredAt": "2026-09-24",
+  "shellMinifiedBytes": 960121,
+  "shellGzipBytes": 239592,
+  "lazyPoolMinifiedBytes": 1561203
+}

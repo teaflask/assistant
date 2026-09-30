@@ -1,0 +1,28 @@
+name: Close external pull requests
+
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  close:
+    if: github.event.pull_request.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    # One gh call. Unmeasured backstop against a wedged runner.
+    timeout-minutes: 5
+    # No checkout: pull_request_target runs with write access to this
+    # repository, so the pull request's code is never fetched or run here.
+    # GH_REPO names the repository for gh, which otherwise reads it from a
+    # local checkout.
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      PR: ${{ github.event.pull_request.number }}
+    steps:
+      # One call, comment before close: the pull request is never left
+      # closed without the explanation.
+      - run: |
+          gh pr close "$PR" --comment "Thanks for the interest. This repository is a read-only mirror: its contents are written by a bot from a private source tree, so pull requests cannot be merged here yet and are closed automatically. Please open an issue instead, or, for a security vulnerability, follow SECURITY.md."

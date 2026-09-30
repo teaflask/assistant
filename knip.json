@@ -1,0 +1,22 @@
+{
+  "entry": [
+    "src/index.ts",
+    "src/activity.ts",
+    "src/element.ts",
+    "src/headless.ts",
+    "src/markdown.ts",
+    "src/scroll.ts",
+    "src/transcript.ts",
+    "src/transcript-ui.ts",
+    "src/styles/styles.css",
+    "fixtures/transcript/shadow-probe.tsx",
+    "fixtures/scroll-stress/main.tsx"
+  ],
+  "ignore": [
+    "src/generated/**",
+    "scripts/*.d.mts",
+    "*.d.mts",
+    "fixtures/scroll-stress/run.mjs"
+  ],
+  "ignoreDependencies": ["zod"]
+}

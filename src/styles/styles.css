@@ -1,0 +1,1533 @@
+/* The package's whole stylesheet, built to dist/styles.css by the
+   Tailwind v4 CLI. Hosts add exactly one style line:
+   `import "@teaflask/assistant/styles.css"`. */
+
+/* Pin the layer order up front: this file's own @layer base rules must
+   lose to the utilities imported below (declaration order, not source
+   order, decides layer precedence). */
+@layer theme, base, components, utilities;
+
+/* Reference-only theme + utilities with no automatic source scanning:
+   the host page gets no preflight and no default-theme variables from
+   us — only the utility classes the package's own components use. */
+@import "tailwindcss/theme" theme(reference) prefix(tf);
+@import "tailwindcss/utilities" source(none);
+@source "../components";
+
+/* Long argument text stays a preview, never an accidental document card.
+   The hook keeps its historical name: its home is the bounded argument
+   reading (tool-arguments-summary.tsx), today the rung-4 default view —
+   the approval banner does not mount it. */
+[data-tf-approval-text-preview] {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* Consent controls never leave reach. The banner shares the suspension
+   well's host-aware height budget — read through the well's own custom
+   property, so height-capped hosts (the palette, the floating companion)
+   squeeze the banner under their own caps; the fallback is the well's
+   default. The banner has no shrinkable middle (it carries no argument
+   summary), so a pathological consent prompt scrolls the banner as a
+   whole — Approve/Deny stay reachable inside it and the composer is
+   never overlapped. Never `overflow: hidden`: that would clip the
+   decision row out of reach. The one-rem subtraction accounts for the
+   banner's vertical `my-2` margin. */
+[data-tf-approval-card] {
+  max-height: calc(
+    var(--_tf-suspension-well-max-height, min(45dvh, 36rem)) - 1rem
+  );
+  overflow-y: auto;
+}
+
+/* The question panel takes the same host-aware budget, but only its
+   answer list scrolls: the heading, the pager, the question and the
+   Cancel/Next/Submit footer stay in reach on a height-capped host, and a
+   long suggestion list or a tall pasted custom answer scrolls between
+   them. The one-rem subtraction accounts for the panel's `my-1` margin
+   plus the well's own breathing room. */
+[data-tf-question-panel] {
+  display: flex;
+  max-height: calc(
+    var(--_tf-suspension-well-max-height, min(45dvh, 36rem)) - 1rem
+  );
+  flex-direction: column;
+  /* Neither hidden nor visible overflow (the approval frame's rule):
+     with only the answer list shrinkable, a long prompt plus a failure
+     sentence on a short host — the palette's 20rem floor leaves the
+     panel 304px — would push the Cancel/Submit footer past the edge.
+     The list shrinks first (to its floor below); once it has nothing
+     left to give, the panel scrolls as a whole and the footer stays
+     reachable. */
+  overflow-y: auto;
+}
+/* The list's floor is never 0 (the precedent was the argument summary's
+   min-h-24 floor — the pre-banner approval card's shrinkable flex child,
+   gone): a zero-height list would let the panel's own fallback scroll
+   pass over an invisible list, so the answers could never be reached on a
+   short host — measured at the palette floor with the fixture's long set,
+   the list collapsed to 0px while the panel scrolled 60px past it. The
+   floor follows the content: two answer rows (6rem) when the question
+   carries suggestions, one row (2.75rem, the custom row's min-h-11) when
+   it carries none — an unconditional 6rem left ~48px of dead space under
+   a suggestion-less question. */
+[data-tf-question-panel] [data-tf-question-answers] {
+  min-height: 2.75rem;
+  overflow-y: auto;
+}
+[data-tf-question-panel] [data-tf-question-answers][data-tf-has-options] {
+  min-height: 6rem;
+}
+/* The answer list's fold cue — the decision well's own idiom: a MASK
+   fading the list's tail while more rows sit below, keyed on the panel's
+   measured data-tf-fold-below, never a painted band (the Scroll-Well Rule:
+   a capped list must declare its fold). */
+[data-tf-question-panel] [data-tf-question-answers][data-tf-fold-below] {
+  mask-image: linear-gradient(to bottom, black calc(100% - 2rem), transparent);
+}
+
+/* Reserve clearance at the end of the scrolling content, never in the
+   composer. The clearance scrolls away with the transcript tail. */
+[data-tf-message-list]:has(~ [data-tf-composer-anchor] [data-tf-subagent-pill])
+  [data-tf-activity-tail] {
+  height: 4rem;
+}
+
+/* In scrollback only the jump arrow remains. Visibility also removes the
+   pill from keyboard navigation without changing the scroll geometry. */
+[data-tf-message-list]:has([data-tf-scroll-away-jump])
+  ~ [data-tf-composer-anchor]
+  [data-tf-activity-slot] {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* A closed transcript disclosure holds no layout boxes. The engine's own
+   closed-<details> treatment keeps the content in layout as a
+   content-visibility:hidden subtree, and a nested scroller inside such a
+   subtree can register a compositor scroll node whose bounds never update,
+   freezing the transcript's native scroll range (crbug.com/558064971).
+   Hiding the ::details-content box — the wrapper of every non-summary
+   child — leaves the locked subtree nothing to register, covers host
+   <details> mounted through slots as well as the package Disclosure, and
+   keeps the DOM mounted so nested open state survives; the open attribute
+   re-admits the box synchronously. Engines without ::details-content drop
+   the rule and keep native behaviour. Scoped to the transcript list, and
+   unlayered so it outranks body utilities. Evidence and the removal
+   condition: the transcript scrollbar stale-compositor-node record. */
+[data-tf-message-list] details:not([open])::details-content {
+  display: none;
+}
+
+/* Reveal-on-interaction chevrons appear on hover or summary focus; touch
+   has neither, so without this the summary reads as an inert box — the
+   exact failure disclosure.tsx warns a markerless summary invites. Where
+   hover cannot reveal, the affordance stays visible (a stylesheet rule
+   out-ranks the component's SVG opacity presentation attribute). */
+@media (hover: none), (pointer: coarse) {
+  [data-tf-disclosure-chevron] {
+    opacity: 1;
+  }
+}
+
+/* The package's utility tokens. `inline` keeps utilities pointing at the
+   private alias vars below, so theming stays live at runtime. The 13/15
+   type steps are fixed design values, not theme surface. Inline tokens
+   are inlined into utilities and never emitted as custom properties, so
+   a hand-written rule reads one through `--theme(--token)`, never
+   `var()` — a `var()` read of an inline token resolves to nothing
+   (tests/styles-dead-declarations.test.ts). */
+@theme inline {
+  /* A package-named transparent. The collision rationale is historical
+     (the tf: utility prefix makes every package class a name no host
+     build generates); the token stays — it is harmless, and its call
+     sites are settled. */
+  --color-tf-transparent: transparent;
+  --color-tf-background: var(--_tf-background);
+  --color-tf-foreground: var(--_tf-foreground);
+  --color-tf-card: var(--_tf-card);
+  --color-tf-card-foreground: var(--_tf-card-foreground);
+  --color-tf-popover: var(--_tf-popover);
+  --color-tf-popover-foreground: var(--_tf-popover-foreground);
+  --color-tf-primary: var(--_tf-primary);
+  --color-tf-primary-foreground: var(--_tf-primary-foreground);
+  --color-tf-secondary: var(--_tf-secondary);
+  --color-tf-secondary-foreground: var(--_tf-secondary-foreground);
+  --color-tf-muted: var(--_tf-muted);
+  --color-tf-muted-foreground: var(--_tf-muted-foreground);
+  --color-tf-accent: var(--_tf-accent);
+  --color-tf-accent-foreground: var(--_tf-accent-foreground);
+  /* The one selected/emphasized ground (the matrix min cell): the muted
+     ground pushed toward ink — mixed INTO muted, not alpha over
+     transparent, so it clears the resting cells in light, dark, and any
+     host theme. No-Accent: emphasis is ink, never a hue. */
+  --color-tf-emphasis: color-mix(
+    in oklab,
+    var(--_tf-foreground) var(--_tf-emphasis-mix),
+    var(--_tf-muted)
+  );
+  --color-tf-destructive: var(--_tf-destructive);
+  --color-tf-border: var(--_tf-border);
+  --color-tf-input: var(--_tf-input);
+  --color-tf-ring: var(--_tf-ring);
+  --radius-tf: var(--_tf-radius);
+  --font-tf-sans: var(--_tf-font-sans);
+  --text-tf-label: 0.8125rem;
+  --text-tf-heading: 0.9375rem;
+  /* The Title step carries the 15px tracking (the visual spec's -0.02em) —
+     size alone left package headings looser than the app's. */
+  --text-tf-heading--letter-spacing: -0.02em;
+  /* The conversation reading size: the 15px step at a prose leading —
+     between the 13px UI labels and the chassis' 16px default. */
+  --text-tf-body: 0.9375rem;
+  --text-tf-body--line-height: 1.6;
+  /* The Graphite control wash (the visual spec): buttons and inputs carry a
+     whisper of depth, never a drop shadow. */
+  --shadow-tf-control: 0px 1px 2px rgba(0, 0, 0, 0.04);
+  /* Package-named editions of Tailwind's pulse/spin: `prefix(tf)`
+     scopes CLASSES, not `@keyframes` names, so the old animate
+     utilities shipped global `@keyframes pulse`/`spin` — with the
+     layer(tf-assistant) quarantine gone, those out-cascaded a
+     host's own layered `pulse`/`spin` and beat an unlayered host
+     definition whenever our sheet loads later. Same values as the
+     defaults; only the global names changed. Every animation this sheet
+     ships is `tf-` named (tf-shimmer's pattern). */
+  --animate-tf-pulse: tf-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-tf-spin: tf-spin 1s linear infinite;
+}
+
+@keyframes tf-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes tf-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* The theming contract: hosts set `--tf-*` on any ancestor and it wins;
+   otherwise the Graphite (Geist monochrome) defaults below apply. The
+   private `--_tf-*` alias layer is what makes that precedence work — a
+   default declared directly on `--tf-*` here would beat the ancestor's
+   value. Values verbatim from the Graphite system (the visual spec). */
+[data-tf-assistant] {
+  /* Native form controls (the composer's textarea, scrollbars, the
+     attachment input) draw their own chrome from the UA scheme — without
+     this a dark widget shows near-black control chrome on black. Routed
+     through a --tf-* token, NOT pinned: the theming contract above promises a
+     host can dark-theme with tokens alone (no mode prop, no ancestor
+     attribute), and that host must be able to flip the UA scheme the
+     same way — `--tf-color-scheme: dark` on any ancestor. The default
+     stays `light` (never inherit): the default-light widget inside a
+     dark host page must not pick up the page's dark scheme. */
+  color-scheme: var(--tf-color-scheme, light);
+  --_tf-background: var(--tf-background, #ffffff);
+  --_tf-foreground: var(--tf-foreground, #171717);
+  --_tf-card: var(--tf-card, #ffffff);
+  --_tf-card-foreground: var(--tf-card-foreground, #171717);
+  --_tf-popover: var(--tf-popover, #ffffff);
+  --_tf-popover-foreground: var(--tf-popover-foreground, #171717);
+  --_tf-primary: var(--tf-primary, #171717);
+  --_tf-primary-foreground: var(--tf-primary-foreground, #ffffff);
+  --_tf-secondary: var(--tf-secondary, #f2f2f2);
+  --_tf-secondary-foreground: var(--tf-secondary-foreground, #171717);
+  --_tf-muted: var(--tf-muted, #f2f2f2);
+  --_tf-muted-foreground: var(--tf-muted-foreground, #4d4d4d);
+  /* The emphasis mix ratio (the visual spec's selected-row idiom: 10%
+     light, 16% dark — dark inks need more distance from the dark muted).
+     Not host-themable: the ink and ground it mixes already are. */
+  --_tf-emphasis-mix: 10%;
+  /* The shimmer band's peak, a mix of the tokens beside it so a
+     re-themed ink re-themes the band. Light lifts TOWARD the page; dark
+     lifts toward its foreground (see that block). The band is
+     opaque where it peaks, so its own contrast is the label's floor for
+     that beat — and the floor is judged on the DARKEST ground a shimmer
+     can land on, not the page alone: the subagent pill is a TfButton
+     whose hover ground is the accent composite #f2f2f2, and being a
+     button it never sees the summary:hover swap below. 65/35 lands
+     ≈#878787: 3.60:1 on the page, 3.21:1 on that composite.
+     THE FLOOR THIS HOLDS CHANGED, deliberately: the ×0.55 formula held
+     the 4.5:1 text floor, and on a white page no lift that clears 4.5:1
+     is big enough to see (the headroom above #4d4d4d runs out at ΔL
+     0.15, smaller than the ΔL 0.19 drop that shipped and read as
+     static). So the band is held to 3:1 — the non-text floor — on the
+     grounds that it is a transient overlay on an aria-hidden duplicate,
+     the base layer under it never leaves 7.5:1 on either ground, and
+     reduced motion removes it entirely. 3:1 on the ACCENT composite is
+     the ceiling on how far this may move. Pinned against both known
+     failures: dropping INTO the ink (#1d1d1d) reads as a weight wobble,
+     not a band, and lifting past ≈#cbcbcb (1.6:1) erases the glyph it
+     crosses. Light needs no separate hover peak — the hovered ink is
+     the foreground, further off than the muted. */
+  --_tf-shimmer-peak: color-mix(
+    in oklab,
+    var(--_tf-muted-foreground) 65%,
+    var(--_tf-background)
+  );
+  --_tf-shimmer-peak-hover: var(--_tf-shimmer-peak);
+  --_tf-accent: var(--tf-accent, rgba(0, 0, 0, 0.05));
+  --_tf-accent-foreground: var(--tf-accent-foreground, #171717);
+  --_tf-destructive: var(--tf-destructive, #e70022);
+  --_tf-border: var(--tf-border, rgba(0, 0, 0, 0.08));
+  --_tf-input: var(--tf-input, rgba(0, 0, 0, 0.08));
+  --_tf-ring: var(--tf-ring, #0070f7);
+  --_tf-radius: var(--tf-radius, 0.5rem);
+  --_tf-font-sans: var(
+    --tf-font-sans,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif
+  );
+}
+
+/* Dark: pure-black Geist, opted into by a `data-tf-theme="dark"`
+   attribute on the widget root or any ancestor. Per-token precedence:
+   the theme prop's dark value first (`--_tf-dark-*` — private mechanism
+   variables the provider inlines on the roots, never a host-set name),
+   then `--tf-*` (host or prop; wins in both modes, as documented), then
+   the dark default. */
+[data-tf-theme="dark"] [data-tf-assistant],
+[data-tf-assistant][data-tf-theme="dark"] {
+  color-scheme: var(--tf-color-scheme, dark);
+  --_tf-background: var(--_tf-dark-background, var(--tf-background, #000000));
+  --_tf-foreground: var(--_tf-dark-foreground, var(--tf-foreground, #ededed));
+  --_tf-card: var(--_tf-dark-card, var(--tf-card, #000000));
+  --_tf-card-foreground: var(
+    --_tf-dark-card-foreground,
+    var(--tf-card-foreground, #ededed)
+  );
+  --_tf-popover: var(--_tf-dark-popover, var(--tf-popover, #000000));
+  --_tf-popover-foreground: var(
+    --_tf-dark-popover-foreground,
+    var(--tf-popover-foreground, #ededed)
+  );
+  --_tf-primary: var(--_tf-dark-primary, var(--tf-primary, #ededed));
+  --_tf-primary-foreground: var(
+    --_tf-dark-primary-foreground,
+    var(--tf-primary-foreground, #000000)
+  );
+  --_tf-secondary: var(--_tf-dark-secondary, var(--tf-secondary, #1a1a1a));
+  --_tf-secondary-foreground: var(
+    --_tf-dark-secondary-foreground,
+    var(--tf-secondary-foreground, #ededed)
+  );
+  --_tf-muted: var(--_tf-dark-muted, var(--tf-muted, #1a1a1a));
+  --_tf-muted-foreground: var(
+    --_tf-dark-muted-foreground,
+    var(--tf-muted-foreground, #a0a0a0)
+  );
+  --_tf-emphasis-mix: 16%;
+  /* Dark's band lifts toward the foreground (≈14.6:1 near-white glint on
+     the page black); its HOVER twin reverses, dropping toward the page,
+     because the hovered summary's ink is already that near-white. */
+  --_tf-shimmer-peak: color-mix(
+    in oklab,
+    var(--_tf-muted-foreground) 20%,
+    var(--_tf-foreground)
+  );
+  --_tf-shimmer-peak-hover: color-mix(
+    in oklab,
+    var(--_tf-muted-foreground) 80%,
+    var(--_tf-background)
+  );
+  --_tf-accent: var(
+    --_tf-dark-accent,
+    var(--tf-accent, rgba(255, 255, 255, 0.07))
+  );
+  --_tf-accent-foreground: var(
+    --_tf-dark-accent-foreground,
+    var(--tf-accent-foreground, #ededed)
+  );
+  --_tf-destructive: var(
+    --_tf-dark-destructive,
+    var(--tf-destructive, #f32e40)
+  );
+  --_tf-border: var(
+    --_tf-dark-border,
+    var(--tf-border, rgba(255, 255, 255, 0.14))
+  );
+  --_tf-input: var(
+    --_tf-dark-input,
+    var(--tf-input, rgba(255, 255, 255, 0.14))
+  );
+  --_tf-ring: var(--_tf-dark-ring, var(--tf-ring, #50a8ff));
+}
+
+/* An explicit JS `mode` wins over ambient context: the provider writes
+   `data-tf-theme` on the widget root itself, and at equal specificity
+   these later declarations out-cascade an ancestor's dark attribute.
+   "light" pins the light aliases back; "auto" does the same and then
+   hands the choice to the visitor's OS via the media block below —
+   never to the page. */
+[data-tf-assistant][data-tf-theme="light"],
+[data-tf-assistant][data-tf-theme="auto"] {
+  color-scheme: var(--tf-color-scheme, light);
+  --_tf-background: var(--tf-background, #ffffff);
+  --_tf-foreground: var(--tf-foreground, #171717);
+  --_tf-card: var(--tf-card, #ffffff);
+  --_tf-card-foreground: var(--tf-card-foreground, #171717);
+  --_tf-popover: var(--tf-popover, #ffffff);
+  --_tf-popover-foreground: var(--tf-popover-foreground, #171717);
+  --_tf-primary: var(--tf-primary, #171717);
+  --_tf-primary-foreground: var(--tf-primary-foreground, #ffffff);
+  --_tf-secondary: var(--tf-secondary, #f2f2f2);
+  --_tf-secondary-foreground: var(--tf-secondary-foreground, #171717);
+  --_tf-muted: var(--tf-muted, #f2f2f2);
+  --_tf-muted-foreground: var(--tf-muted-foreground, #4d4d4d);
+  --_tf-emphasis-mix: 10%;
+  --_tf-shimmer-peak: color-mix(
+    in oklab,
+    var(--_tf-muted-foreground) 65%,
+    var(--_tf-background)
+  );
+  --_tf-shimmer-peak-hover: var(--_tf-shimmer-peak);
+  --_tf-accent: var(--tf-accent, rgba(0, 0, 0, 0.05));
+  --_tf-accent-foreground: var(--tf-accent-foreground, #171717);
+  --_tf-destructive: var(--tf-destructive, #e70022);
+  --_tf-border: var(--tf-border, rgba(0, 0, 0, 0.08));
+  --_tf-input: var(--tf-input, rgba(0, 0, 0, 0.08));
+  --_tf-ring: var(--tf-ring, #0070f7);
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-tf-assistant][data-tf-theme="auto"] {
+    color-scheme: var(--tf-color-scheme, dark);
+    --_tf-background: var(--_tf-dark-background, var(--tf-background, #000000));
+    --_tf-foreground: var(--_tf-dark-foreground, var(--tf-foreground, #ededed));
+    --_tf-card: var(--_tf-dark-card, var(--tf-card, #000000));
+    --_tf-card-foreground: var(
+      --_tf-dark-card-foreground,
+      var(--tf-card-foreground, #ededed)
+    );
+    --_tf-popover: var(--_tf-dark-popover, var(--tf-popover, #000000));
+    --_tf-popover-foreground: var(
+      --_tf-dark-popover-foreground,
+      var(--tf-popover-foreground, #ededed)
+    );
+    --_tf-primary: var(--_tf-dark-primary, var(--tf-primary, #ededed));
+    --_tf-primary-foreground: var(
+      --_tf-dark-primary-foreground,
+      var(--tf-primary-foreground, #000000)
+    );
+    --_tf-secondary: var(--_tf-dark-secondary, var(--tf-secondary, #1a1a1a));
+    --_tf-secondary-foreground: var(
+      --_tf-dark-secondary-foreground,
+      var(--tf-secondary-foreground, #ededed)
+    );
+    --_tf-muted: var(--_tf-dark-muted, var(--tf-muted, #1a1a1a));
+    --_tf-muted-foreground: var(
+      --_tf-dark-muted-foreground,
+      var(--tf-muted-foreground, #a0a0a0)
+    );
+    --_tf-emphasis-mix: 16%;
+    /* Dark's band lifts toward the foreground; its HOVER twin reverses,
+       dropping toward the page, because the hovered ink is that glint. */
+    --_tf-shimmer-peak: color-mix(
+      in oklab,
+      var(--_tf-muted-foreground) 20%,
+      var(--_tf-foreground)
+    );
+    --_tf-shimmer-peak-hover: color-mix(
+      in oklab,
+      var(--_tf-muted-foreground) 80%,
+      var(--_tf-background)
+    );
+    --_tf-accent: var(
+      --_tf-dark-accent,
+      var(--tf-accent, rgba(255, 255, 255, 0.07))
+    );
+    --_tf-accent-foreground: var(
+      --_tf-dark-accent-foreground,
+      var(--tf-accent-foreground, #ededed)
+    );
+    --_tf-destructive: var(
+      --_tf-dark-destructive,
+      var(--tf-destructive, #f32e40)
+    );
+    --_tf-border: var(
+      --_tf-dark-border,
+      var(--tf-border, rgba(255, 255, 255, 0.14))
+    );
+    --_tf-input: var(
+      --_tf-dark-input,
+      var(--tf-input, rgba(255, 255, 255, 0.14))
+    );
+    --_tf-ring: var(--_tf-dark-ring, var(--tf-ring, #50a8ff));
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   The liquid-glass material (the visual spec, the Portal Lift Rule's third
+   carved exception): sheen gradient over a light translucent coat, a heavy
+   saturated backdrop blur, a white specular top edge, a deep drop shadow —
+   worn by every top-layer surface. Glass is earned the way a shadow is, by
+   floating over someone else's pixels; the docked sidebar and the in-flow
+   page surface stay opaque Graphite.
+
+   Derived from the resolved --_tf-* aliases, never restated per mode
+   block: hosts may bridge dark token values without data-tf-theme (the
+   dashboard does), so the mode blocks can't be trusted to know what
+   color the glass should be — the resolved background/foreground can.
+   Dark resolves to the site's smoke recipe; light resolves to a frost.
+   The specular terms stay white in both: they are light striking the
+   surface, not fill. Lengths in px on purpose — material constants,
+   not type-scale participants.
+
+   The rule below is the no-glass baseline: it restates the opaque fill
+   and Portal L2 shadow these surfaces wore before the material existed,
+   so an engine without backdrop-filter or color-mix renders today's
+   Graphite chrome instead of a see-through box. */
+[data-tf-assistant][data-tf-glass],
+[data-tf-assistant] [data-tf-glass] {
+  background: var(--_tf-background);
+  box-shadow:
+    0px 1px 1px rgba(0, 0, 0, 0.1),
+    0px 2px 8px rgba(0, 0, 0, 0.1),
+    0px 3px 12px rgba(0, 0, 0, 0.08),
+    0px 3px 20px rgba(0, 0, 0, 0.06),
+    0px 4px 40px rgba(0, 0, 0, 0.06);
+}
+
+/* The subagent count pill's trigger is a ~36px chip wearing the glass
+   material over the near-white composer ground — the one data-tf-glass
+   carrier that is NOT a portal (the header-menu argument below, scaled
+   to a chip): the full Portal L2 ladder under it reads as a black
+   smudge, not a float. It keeps the whole material — coat, blur,
+   specular edge — and trades the deep lift for a chip-scale one. The
+   child combinator scopes the correction to the trigger alone: the
+   roster card it discloses sits a level deeper in the wrapper and IS a
+   genuine portal, keeping the full lift. Present in BOTH the baseline
+   here and the gate below, because each resets box-shadow wholesale —
+   a single-home correction would vanish exactly where the material
+   actually renders. */
+[data-tf-assistant] [data-tf-subagent-pill] > [data-tf-glass] {
+  box-shadow:
+    0px 1px 1px rgba(0, 0, 0, 0.1),
+    0px 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Both features gated together: a coat built on an unsupported
+   color-mix would fail at computed-value time and leave no background
+   at all — the baseline above must survive intact wherever either leg
+   is missing. */
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)))
+  and (background: color-mix(in srgb, red 50%, transparent)) {
+  [data-tf-assistant][data-tf-glass],
+  [data-tf-assistant] [data-tf-glass] {
+    /* The material's balance: a LIGHT coat over a HEAVY blur, never
+       the reverse. The blur is what buys legibility — it flattens the
+       backdrop to low-frequency washes text can sit on — so the coat
+       only has to tint, and the host page keeps reading through as
+       recognizable silhouettes and color (a heavy coat here turns the
+       glass back into a painted card). The saturate leg keeps the
+       backdrop's color alive under the tint instead of greying it. */
+    --_tf-glass-coat: color-mix(
+      in srgb,
+      var(--_tf-background) 35%,
+      transparent
+    );
+    background:
+      linear-gradient(
+        180deg,
+        rgb(255 255 255 / 0.08) 0%,
+        rgb(255 255 255 / 0.02) 45%
+      ),
+      var(--_tf-glass-coat);
+    border-color: color-mix(in srgb, var(--_tf-foreground) 22%, transparent);
+    -webkit-backdrop-filter: blur(16px) saturate(1.5);
+    backdrop-filter: blur(16px) saturate(1.5);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.3),
+      0 24px 60px rgb(0 0 0 / 0.35);
+    /* The whole muted family — user bubble, table headers, inline
+       code, skeleton bones, the disabled send — goes translucent under
+       glass, so interior surfaces read as etched into the material
+       rather than opaque cards parked on it. */
+    --_tf-muted: color-mix(in srgb, var(--_tf-foreground) 10%, transparent);
+  }
+  /* The composer wash re-grounded: its color-mix ground leans on the
+     opaque background it no longer has; on glass it becomes the site's
+     ink-wash register instead. The breathing focus shadow stays — the
+     composer keeps its carved Portal Lift exception on any surface. */
+  [data-tf-glass] [data-tf-composer-wash] {
+    background: color-mix(in srgb, var(--_tf-foreground) 6%, transparent);
+  }
+  /* The composer's ground strip would re-opaque the panel's bottom
+     edge; under glass the material is the ground. */
+  [data-tf-glass] [data-tf-composer-ground] {
+    background: transparent;
+  }
+  /* The subagent drill-in's cover: its opaque bg-tf-background is the
+     right cover on the opaque hosts, but under glass it would flip the
+     material to a solid slab for the length of the visit — and the
+     panel cannot wear glass over the transcript instead, because a
+     backdrop-filter never samples its own host's painted text (the
+     backdrop-root law below). So the covered conversation HIDES — it is
+     already inert; visibility follows the same fact — and the panel's
+     rows sit directly on the host's material, exactly where the
+     transcript's rows sat. */
+  [data-tf-glass] [data-tf-conversation] > [inert] {
+    visibility: hidden;
+  }
+  [data-tf-glass] [data-tf-child-transcript] {
+    background: transparent;
+  }
+  /* The chip-scale lift's gated half (see the baseline rule above the
+     gate): only box-shadow — the coat, blur, and the gate's own
+     --_tf-muted declaration stay from the generic rule. Specular edge
+     kept: it is light striking the material, not the portal costume. */
+  [data-tf-assistant] [data-tf-subagent-pill] > [data-tf-glass] {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.3),
+      0 8px 24px rgb(0 0 0 / 0.12);
+  }
+}
+
+/* A header menu is not a portal, and must not dress like one.
+
+   The material's specular edge and deep lift are what a top-layer
+   surface wears BECAUSE it floats over the host's pixels — the Portal
+   Lift Rule's whole argument. This menu floats over ours: it drops open
+   inside the panel that owns it. Wearing the same costume in there, it
+   reads as a second, shinier surface parked on the first (the white top
+   edge is the "shine", the 60px lift is the "pop"), and no amount of
+   tuning the fill fixes a surface that is lit like a different one.
+
+   So it keeps the material's coat — the same tint as its host, so the
+   two read as one pane — and trades the portal costume for a short
+   shadow that says only which of the two is on top. Outside the glass
+   gate as well as in: the docked pane's menus are the same object.
+   The hairline carries the rest. */
+[data-tf-assistant] [data-tf-disclosure] {
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.1);
+}
+[data-tf-assistant] [data-tf-disclosure][data-tf-surface-inset] {
+  top: 0.5rem;
+}
+
+/* The widget's own base: border-box everywhere under the root (the host
+   page keeps its own box model — no global preflight leaves this file),
+   the themable font, and the hairline default for every border utility.
+   EXCEPT host-authored content: everything under a [data-tf-host-view]
+   marker — a custom tool view's subtree, the page chrome and welcome
+   mark, a host's companion mark (the marked slots are enumerated in
+   docs/tool-view-registry.md) — is the HOST's DOM rendered inside the
+   widget through a documented extension point. One exception: the
+   script-tag companion mark falls back to the package flask INSIDE its
+   marker after a failed image load, so that flask sits outside this
+   reset — harmless, it carries no border or box metrics. With the sheet
+   unlayered this reset would out-cascade the host's own utilities on it
+   (a host could not style its own view's border). :where() keeps the
+   rule's specificity identical to the old bare `*` (0,1,0) for
+   everything the widget owns, so nothing intra-widget re-ranks. */
+[data-tf-assistant],
+[data-tf-assistant] :where(*:not([data-tf-host-view] *)),
+[data-tf-assistant] :where(*:not([data-tf-host-view] *))::before,
+[data-tf-assistant] :where(*:not([data-tf-host-view] *))::after {
+  box-sizing: border-box;
+  border-color: var(--_tf-border);
+}
+
+[data-tf-assistant] {
+  font-family: var(--_tf-font-sans);
+  color: var(--_tf-foreground);
+}
+
+/* Form controls don't inherit fonts by UA default (textareas even come
+   monospace); with no preflight shipping, the widget root restates it.
+   In @layer base so the size/weight utilities on the primitives keep
+   winning — this only replaces the UA default. */
+@layer base {
+  [data-tf-assistant] button,
+  [data-tf-assistant] textarea,
+  [data-tf-assistant] input,
+  [data-tf-assistant] select {
+    font: inherit;
+  }
+}
+
+/* The edge drawer's motion. A native <dialog> has no mounting moment to
+   hang a React transition on, so the whole in/out lives here: the closed
+   position is the resting rule, [open] is the destination, and
+   @starting-style supplies the from-state the top layer would otherwise
+   skip. allow-discrete on display/overlay is what keeps the element
+   painted long enough for the exit to be seen at all.
+
+   Translate (not transform) so the drag variable can compose with the
+   resting offset without either one clobbering the other. */
+[data-tf-sheet] {
+  --_tf-swipe-drag: 0px;
+  /* The horizontal axis is the drawer's; the vertical one still belongs to
+     the thread list underneath. Claiming it explicitly is what stops the UA
+     deciding mid-swipe that the gesture was really a native pan and taking
+     the pointer away — a cancel the drawer can only answer by springing
+     back, having lost the swipe it was halfway through.
+     pinch-zoom is listed with it because it is not implied: pan-y alone
+     takes magnification away from everyone reading the drawer, which is
+     not a trade a swipe gesture gets to make. */
+  touch-action: pan-y pinch-zoom;
+  transition:
+    translate 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    display 220ms allow-discrete,
+    overlay 220ms allow-discrete;
+}
+[data-tf-sheet="left"] {
+  translate: -100% 0;
+}
+[data-tf-sheet="right"] {
+  translate: 100% 0;
+}
+[data-tf-sheet][open] {
+  translate: var(--_tf-swipe-drag) 0;
+}
+@starting-style {
+  [data-tf-sheet="left"][open] {
+    translate: -100% 0;
+  }
+  [data-tf-sheet="right"][open] {
+    translate: 100% 0;
+  }
+}
+/* Under the thumb the panel tracks the finger exactly — a transition here
+   would make the drag feel like it was being negotiated. */
+[data-tf-sheet][data-tf-swipe-dragging] {
+  transition: none;
+}
+
+[data-tf-sheet]::backdrop {
+  background-color: rgb(0 0 0 / 0.4);
+  opacity: 0;
+  transition:
+    opacity 180ms ease-out,
+    display 180ms allow-discrete,
+    overlay 180ms allow-discrete;
+}
+[data-tf-sheet][open]::backdrop {
+  opacity: 1;
+}
+@starting-style {
+  [data-tf-sheet][open]::backdrop {
+    opacity: 0;
+  }
+}
+
+/* The corner panel's motion: a corner-anchored growth with a residual
+   rise, on the sheet's clock and curve. It shares the sheet's
+   transition mechanics for the same reason
+   the sheet has them — a top-layer element (here a popover) has no React
+   mount moment, so @starting-style supplies the enter's from-state and
+   allow-discrete on display/overlay keeps the exit painted. The resting
+   rules below double as the exit's destination. Its ::backdrop is never
+   styled: a manual popover's backdrop intercepts nothing, and this
+   surface must not even look like it dimmed the page.
+
+   No opacity in the run: the floating panel is glass, and a glass
+   surface at fractional opacity composites its blurred backdrop at
+   partial alpha — the sharp host page reads through its own blurred
+   copy for the whole fade. Glass moves, it never dissolves; the growth
+   runs deeper to carry the entrance the fade used to share. */
+[data-tf-floating-panel] {
+  --_tf-swipe-drag: 0px;
+  translate: 0 8px;
+  scale: 0.92;
+  transition:
+    translate 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    scale 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    display 220ms allow-discrete,
+    overlay 220ms allow-discrete;
+}
+[data-tf-floating-panel]:popover-open {
+  translate: 0 var(--_tf-swipe-drag);
+  scale: 1;
+}
+@starting-style {
+  [data-tf-floating-panel]:popover-open {
+    translate: 0 8px;
+    scale: 0.92;
+  }
+}
+/* The entrance grows out of the panel's own corner — the perch's corner —
+   so opening reads as the companion expanding, not a card arriving from
+   offscreen. The `scale` property (not transform) keeps the swipe
+   machinery's `translate` composition untouched, and transform-origin
+   keys off the same attribute value that places the panel. A small
+   residual rise keeps the motion from feeling like pure inflation. */
+[data-tf-floating-panel="bottom-right"] {
+  transform-origin: bottom right;
+}
+[data-tf-floating-panel="bottom-left"] {
+  transform-origin: bottom left;
+}
+/* Under the thumb the panel tracks the finger exactly — a transition here
+   would make the drag feel like it was being negotiated. */
+[data-tf-floating-panel][data-tf-swipe-dragging] {
+  transition: none;
+}
+/* The docked sidebar's arrival: a short slide in from the edge it docks
+   to, on the same clock — the page's reflow (an inline margin transition
+   the panel's JS writes) and this slide read as one motion. A
+   zoom-from-corner would read as inflation, not docking, so `scale` pins
+   to 1 (which also keeps offsetWidth the honest reflow measure), and the
+   open-state translate drops the swipe-drag channel entirely: the
+   dismissing swipe is disabled while docked, so the drag variable must
+   never shove the pane. These two-attribute selectors out-rank the
+   one-attribute rules above, including both corner transform-origins;
+   the reduced-motion collapses below still match — the docked panel
+   keeps [data-tf-floating-panel]. */
+[data-tf-floating-panel][data-tf-panel-dock="sidebar"] {
+  /* Plain CSS, not a border-l utility: Tailwind v4 border utilities
+     lean on an @property registration that Chromium honours only in
+     document stylesheets, never in the script-tag shadow root (the
+     element's baked sheet re-declares those names ungated,
+     build-element.mjs), and with the shadow dropped this hairline is the
+     docked pane's only separator — it must paint everywhere, so it
+     depends on nothing. */
+  border-left: 1px solid var(--_tf-border);
+  /* The docked pane is opaque (nothing behind it to blur — it pushes
+     the page aside), so it keeps the fade the glass card had to give
+     up; its own transition list restates the base run's because a
+     bare `opacity` with no transition entry would snap. */
+  opacity: 0;
+  translate: 0.75rem 0;
+  scale: 1;
+  transform-origin: center right;
+  transition:
+    translate 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    display 220ms allow-discrete,
+    overlay 220ms allow-discrete;
+}
+[data-tf-floating-panel][data-tf-panel-dock="sidebar"]:popover-open {
+  opacity: 1;
+  translate: 0 0;
+}
+@starting-style {
+  [data-tf-floating-panel][data-tf-panel-dock="sidebar"]:popover-open {
+    opacity: 0;
+    translate: 0.75rem 0;
+    /* Restated here, not just in the base rule above: the corner card's
+       own @starting-style sets scale 0.92 and also matches the docked
+       panel, and starting-style declarations win the before-change
+       cascade — without this line the dock's entrance zooms after all. */
+    scale: 1;
+  }
+}
+/* The grab region owns its touches: both native pans are claimed so a
+   downward drag dismisses instead of scrolling the page behind the
+   panel, while the content below the handle keeps every native touch
+   behavior (its scrollers never route through this rule). Magnification
+   stays everyone's. Not while docked — with the swipe disabled the
+   header has no gesture to claim, and holding the pans hostage would
+   just dead-zone the touch. */
+[data-tf-floating-panel]:not([data-tf-panel-dock="sidebar"])
+  [data-tf-swipe-handle] {
+  touch-action: pinch-zoom;
+}
+
+/* A dropped-open header menu throws the conversation out of focus.
+
+   The menu is glass over the panel's own text, and glass cannot save
+   that reading: an element carrying backdrop-filter is a backdrop root,
+   so the menu's blur samples the page under the panel and never the
+   transcript painted inside it — the coat tints that text without
+   softening it, at any radius. Blurring the conversation directly is
+   what a heavier coat was being asked to fake, and it is the honest
+   move anyway: while you are choosing a conversation, the one you are
+   leaving is not the thing to read. Depth of field, the way a camera
+   does it.
+
+   `filter`, not `opacity`: glass never fades, and an ancestor at
+   fractional opacity would show the sharp host page through the
+   panel's own blurred copy. */
+[data-tf-floating-panel]:has(> [data-tf-disclosure]) [data-tf-conversation] {
+  filter: blur(8px);
+}
+[data-tf-assistant]:has(> [data-tf-disclosure]) [data-tf-conversation] {
+  filter: blur(8px);
+  pointer-events: none;
+}
+
+/* The model picker is disclosed FROM the composer, so blurring the whole
+   conversation would blur the menu with it. Defocus only the transcript
+   viewport beneath the picker and leave the decision surface crisp. */
+[data-tf-conversation]:has(#tf-model-picker-menu) [data-tf-message-list] {
+  filter: blur(8px);
+  pointer-events: none;
+}
+
+/* One work sequence, not a loose pile of protocol rows. The outer
+   disclosure is the sequence; once opened, the child icons remain the
+   state truth and the hairline makes their order read as a quiet rail.
+   The body carries NO inline-start padding of its own: disclosure adds
+   detail, never indentation — an expanded fold's rows share the fold
+   header's x-origin (TVC-041), and the transcript never staircases.
+   The connector runs down the mark column (0.47rem) that reasoning and
+   tool rows keep clear under their marks; folded NARRATION is flush
+   prose at x=0 and reserves no column, so the rail pauses across it —
+   a narration step paints no connector, and the step above it stops at
+   its own edge instead of reaching into the prose. CASCADE PREMISE: the
+   stop rule repeats the base rule's whole subject and adds the sibling
+   condition, so its specificity (0,4,1) outranks the base's (0,3,1) —
+   a bare `:has()` rule at (0,2,1) would lose to the base whatever the
+   source order, and the reach would stand (styles-activity-rail.test.ts
+   computes both). */
+[data-tf-activity-step] {
+  position: relative;
+}
+[data-tf-activity-step]:not(:last-child):not(
+    [data-tf-activity-narration]
+  )::after {
+  position: absolute;
+  inset-block-start: 1.55rem;
+  inset-block-end: -0.45rem;
+  inset-inline-start: 0.47rem;
+  width: 1px;
+  background: color-mix(in srgb, var(--_tf-foreground) 14%, transparent);
+  content: "";
+  pointer-events: none;
+}
+[data-tf-activity-step]:not(:last-child):not([data-tf-activity-narration]):has(
+    + [data-tf-activity-narration]
+  )::after {
+  inset-block-end: 0;
+}
+
+/* The decision scroll well (the slot contract's sanctioned tenant
+   scroll region; TVC-067):
+
+   The HEIGHT BOUND is a custom property so a host whose panel is capped
+   independent of the viewport can size the well under its own cap —
+   45dvh is honest on the viewport-tied hosts (full page, docked pane,
+   edge drawer) but inside the palette's 36rem overflow-hidden panel it
+   alone would swallow the column and clip the composer off the panel's
+   bottom edge: the exact defect class the shelf milestone exists to
+   remove. Constrained hosts set the property below; a new constrained
+   host sizes itself the same way. */
+[data-tf-decision-scroll-well] {
+  max-height: var(--_tf-suspension-well-max-height, min(45dvh, 36rem));
+}
+/* The palette's panel: min(100dvh - 12rem, 36rem) tall, overflow
+   hidden, with its own chrome and the composer below the well. The dvh
+   term is load-bearing: the panel tracks the viewport below its 36rem
+   cap, so a bare-rem well would out-claim a short panel (a 390px-tall
+   landscape phone gives a 198px panel) and push the composer off the
+   overflow-hidden bottom edge. 25rem = the panel's 12rem offset plus
+   its chrome and the composer, with margin; at extreme shortness the
+   well clamps toward zero — the composer keeps priority by
+   construction. */
+[data-tf-assistant-palette] {
+  --_tf-suspension-well-max-height: min(20rem, 100dvh - 25rem);
+}
+/* The floating companion card: the panel is 68dvh (up to 52rem), so
+   the well's short-viewport term is panel-relative — 68dvh minus
+   13rem of drawer chrome + composer, capped at 26rem on tall
+   viewports. The docked pane is h-dvh and keeps the default. */
+[data-tf-panel-dock="floating"] {
+  --_tf-suspension-well-max-height: min(26rem, 68dvh - 13rem);
+}
+
+/* The well's fold cue — a MASK fading the card's own tail while more
+   sits below (data-tf-fold-below, set by the tenant and receding at the
+   end), never a painted band: under glass the material is the ground
+   (the same reason [data-tf-composer-ground] zeroes above), and an
+   opaque gradient strip would re-introduce exactly that strip inside
+   the palette and the floating card. A mask is material-agnostic and
+   static, so both reduced-motion switches are untouched. */
+[data-tf-decision-scroll-well][data-tf-fold-below] {
+  mask-image: linear-gradient(to bottom, black calc(100% - 2rem), transparent);
+}
+
+/* The subagent roster is disclosed from INSIDE the conversation instead
+   of beside it, so blurring the conversation wholesale would blur the
+   roster and its transcript preview too. Defocus its visual siblings
+   instead: the message viewport, notices, shelf, and composer recede
+   while the pill, roster, and preview stay crisp. This is the same
+   depth-of-field treatment as conversation history, applied at the
+   narrower boundary the nested disclosure requires. The pill lives in a
+   zero-flow overlay inside the shelf+composer anchor
+   ([data-tf-composer-anchor]); the anchor escapes the sibling blur so
+   the overlay's pill — the disclosure holder — stays crisp, while the
+   anchor's in-flow children (the shelf's decision tenants, the composer)
+   each recede exactly once — never a composed double blur. */
+[data-tf-conversation]:has([data-tf-subagent-disclosure])
+  > [data-tf-conversation-body]
+  > :not([data-tf-composer-anchor]),
+[data-tf-conversation]:has([data-tf-subagent-disclosure])
+  [data-tf-composer-anchor]
+  > :not([data-tf-activity-slot]),
+[data-tf-conversation]:has([data-tf-subagent-disclosure])
+  [data-tf-activity-slot]
+  [data-tf-shelf-item]:not([data-tf-subagent-pill]) {
+  filter: blur(8px);
+  pointer-events: none;
+}
+
+/* Reduced motion collapses the slide to a cut. Both switches: the media
+   query, and the host's own global kill switch, which a widget embedded
+   in the dashboard inherits from <html>. */
+@media (prefers-reduced-motion: reduce) {
+  [data-tf-sheet],
+  [data-tf-sheet]::backdrop,
+  [data-tf-floating-panel] {
+    transition-duration: 1ms;
+  }
+}
+[data-reduce-motion="true"] [data-tf-sheet],
+[data-reduce-motion="true"] [data-tf-sheet]::backdrop,
+[data-reduce-motion="true"] [data-tf-floating-panel] {
+  transition-duration: 1ms;
+}
+
+/* The companion presence dock: the corner perch the mark lives on. A
+   manual popover for the floating panel's exact reasons — top-layer
+   paint with zero z-index, immune to transformed host ancestors, works
+   in a shadow root — so the popover reset below replaces the UA's
+   centered-dialog styling with a corner anchor. The dock is chrome-less
+   on purpose: the only visible thing is the perch's bare mark. */
+[data-tf-companion-dock] {
+  /* display none restates the UA's closed-popover style — and IS the
+     whole display in a browser without popover support, where the dock
+     simply never shows (same degradation stance as the floating panel). */
+  display: none;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  overflow: visible;
+  /* The dock's own box is inert — a top-layer container must never
+     eat the host page's clicks through its transparent regions; only
+     the pieces the user can see take the pointer back. */
+  pointer-events: none;
+  inset: auto;
+  /* The lift is the collision-clearance verdict (usePerchClearance):
+     0 on a clear corner, a step up when the page's own controls live
+     underneath. Transitioned so the nudge reads as the perch stepping
+     aside, not teleporting. */
+  bottom: calc(1rem + var(--_tf-companion-lift, 0px));
+  flex-direction: column;
+  align-items: flex-end;
+  /* The dock itself never fades — it transitions only its lift and the
+     popover's display/overlay; the arrival fade lives one level down,
+     on the perch. */
+  transition:
+    bottom 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    display 180ms allow-discrete,
+    overlay 180ms allow-discrete;
+}
+[data-tf-companion-dock]:popover-open {
+  display: flex;
+}
+/* The arrival fade, carried by the perch: it fades itself in when the
+   dock's display flips (an element newly rendered by an ancestor's
+   display change gets its own @starting-style). */
+[data-tf-companion-perch] {
+  opacity: 1;
+  transition: opacity 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@starting-style {
+  [data-tf-companion-perch] {
+    opacity: 0;
+  }
+}
+[data-tf-companion-dock="bottom-right"] {
+  right: 1rem;
+}
+[data-tf-companion-dock="bottom-left"] {
+  left: 1rem;
+  align-items: flex-start;
+}
+
+/* The drawer header's visible grabber: swipe-to-dismiss starts only on
+   the handle row, and an affordance you cannot see is not one. A short
+   centered bar riding the header's top edge — the sheet-drawer idiom,
+   drawn small because the header also carries the close button. Coarse
+   pointers only: the dismissing swipe is touch-only, and on a desktop
+   the bar would promise a drag that doesn't exist. Ink at reduced
+   opacity, not the muted wash — the wash sits at ~1.07:1 against the
+   panel and the one affordance touch users depend on must actually be
+   visible. */
+[data-tf-companion-grabber] {
+  display: none;
+  position: absolute;
+  top: 0.25rem;
+  left: 50%;
+  translate: -50%;
+  width: 2.25rem;
+  height: 0.25rem;
+  border-radius: var(--_tf-radius);
+  background: var(--_tf-muted-foreground);
+  opacity: 0.4;
+}
+@media (hover: none), (pointer: coarse) {
+  [data-tf-companion-grabber] {
+    display: block;
+  }
+}
+/* Docked, there is no swipe to grab — a pill that promises one would
+   lie. Two attributes out-rank the touch rule above. */
+[data-tf-floating-panel][data-tf-panel-dock="sidebar"]
+  [data-tf-companion-grabber] {
+  display: none;
+}
+
+/* The mark's perch. The perch CONTAINER never takes the pointer: a
+   hit-testable container once swallowed host clicks a hand-width from
+   the mark. Only the mark's hit box re-enables it. */
+[data-tf-companion-body] {
+  pointer-events: auto;
+}
+[data-tf-companion-perch] {
+  position: relative;
+  display: flex;
+}
+/* The mark is the door — and the mark alone. No plate, no card, no
+   circle: the brand's own silhouette (the flask, or whatever a host
+   ships) floats bare in the corner, the way a logo does. The button is
+   its invisible hit box — a hand's breadth past the 44px touch floor,
+   so the whole silhouette and a sliver around it take the click — with
+   the mark centered inside. */
+[data-tf-companion-body] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  transition: opacity 150ms ease;
+}
+/* Pointer feedback without chrome: the bare mark has no plate to wash,
+   so the whole door dims under the pointer and dims further on press
+   — the same register as an icon-only control. Unlayered because the
+   rule above is; a hover utility on the className would lose to it. */
+[data-tf-companion-body]:hover {
+  opacity: 0.7;
+}
+[data-tf-companion-body]:active {
+  opacity: 0.55;
+}
+/* The mark's box: one size on every stage — the perch and the drawer's
+   welcome — and no public token. Sized as a companion, not an icon: a
+   glyph at icon scale reads as a button, and the corner is this mark's
+   whole stage. The node inside fills it: the default flask, a host's
+   node, or the script-tag image. */
+[data-tf-companion-mark] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  height: 4rem;
+}
+/* The fill is the package's promise, not the host's homework: a host
+   node with no intrinsic size (a bare viewBox svg, a plain img) takes
+   the box. The host-view span is display: contents, so the node is the
+   box's child and the percentages resolve against it. */
+[data-tf-companion-mark] [data-tf-host-view] > * {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+/* The welcome mark: the mark on the empty drawer's stage — a small
+   presence above the greeting, not a billboard. */
+[data-tf-companion-welcome-mark] {
+  display: flex;
+}
+
+/* Reduced motion: every dock transition collapses to a cut. Same paired
+   switches as the sheet and the floating panel. */
+@media (prefers-reduced-motion: reduce) {
+  [data-tf-companion-dock],
+  [data-tf-companion-perch],
+  [data-tf-companion-body] {
+    transition-duration: 1ms;
+  }
+}
+[data-reduce-motion="true"] [data-tf-companion-dock],
+[data-reduce-motion="true"] [data-tf-companion-perch],
+[data-reduce-motion="true"] [data-tf-companion-body] {
+  transition-duration: 1ms;
+}
+
+/* ---------------------------------------------------------------------------
+   The transcript's markdown typography (assistant-ui's register, adopted at
+   the 2026-07-30 bake-off). Element selectors are safe here: everything under
+   [data-tf-markdown] is the package's own render. */
+
+[data-tf-markdown] {
+  overflow-wrap: break-word;
+}
+[data-tf-markdown] > :first-child {
+  margin-top: 0;
+}
+[data-tf-markdown] > :last-child {
+  margin-bottom: 0;
+}
+[data-tf-markdown] a {
+  color: var(--_tf-foreground);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--_tf-muted-foreground);
+}
+[data-tf-markdown] a:hover {
+  text-decoration-color: var(--_tf-foreground);
+}
+[data-tf-markdown] img {
+  max-width: 100%;
+  border-radius: var(--_tf-radius);
+}
+[data-tf-markdown] li::marker {
+  color: var(--_tf-muted-foreground);
+}
+
+/* The conversational register: a prose rhythm (paragraphs at a 1.25rem
+   block margin on a 1.75 leading, list items at 0.625rem), headings on
+   a 2rem/0.875rem step, table headers on the muted wash with rounded
+   outer corners, upright quotes on a muted stroke.
+
+   The heading ladder follows the visual spec's tracking steps: h1 (28px)
+   and h2 (24px) sit at or past the 24px display step and carry its
+   -0.04em; h3 (20px) is the top of the -0.02em band; h4–h6 stay at the
+   body size and weight-differentiate only. */
+[data-tf-markdown] p {
+  margin-block: 1.25rem;
+  line-height: 1.75;
+}
+[data-tf-markdown] h1 {
+  margin-block: 2rem 0.875rem;
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+[data-tf-markdown] h2 {
+  margin-block: 2rem 0.875rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+[data-tf-markdown] h3 {
+  margin-block: 1.75rem 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+[data-tf-markdown] h4,
+[data-tf-markdown] h5,
+[data-tf-markdown] h6 {
+  margin-block: 0.875rem 0.25rem;
+  font-size: --theme(--text-tf-body);
+  font-weight: 500;
+}
+[data-tf-markdown] ul,
+[data-tf-markdown] ol {
+  margin-block: 0.75rem;
+  padding-left: 1.25rem;
+}
+[data-tf-markdown] ul {
+  list-style: disc;
+}
+[data-tf-markdown] ol {
+  list-style: decimal;
+}
+[data-tf-markdown] li {
+  margin-block: 0.625rem;
+  line-height: 1.75;
+}
+[data-tf-markdown] blockquote {
+  margin-block: 0.75rem;
+  padding-left: 1rem;
+  border-left: 2px solid var(--_tf-border);
+  color: var(--_tf-muted-foreground);
+}
+[data-tf-markdown] hr {
+  margin-block: 0.75rem;
+  border: 0;
+  border-top: 1px solid var(--_tf-border);
+}
+[data-tf-markdown] table {
+  width: 100%;
+  margin-block: 0.75rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+}
+[data-tf-markdown] th {
+  padding: 0.375rem 0.75rem;
+  background: var(--_tf-muted);
+  font-weight: 500;
+}
+[data-tf-markdown] th:first-child {
+  border-start-start-radius: var(--_tf-radius);
+}
+[data-tf-markdown] th:last-child {
+  border-start-end-radius: var(--_tf-radius);
+}
+[data-tf-markdown] td {
+  padding: 0.375rem 0.75rem;
+  border-inline-start: 1px solid var(--_tf-border);
+  border-bottom: 1px solid var(--_tf-border);
+}
+[data-tf-markdown] td:last-child {
+  border-inline-end: 1px solid var(--_tf-border);
+}
+[data-tf-markdown] tr:last-child td:first-child {
+  border-end-start-radius: var(--_tf-radius);
+}
+[data-tf-markdown] tr:last-child td:last-child {
+  border-end-end-radius: var(--_tf-radius);
+}
+/* Inside a tool-view card the same markdown wears the compact register:
+   label-size type on a 1.5 leading, block margins at half a line, the
+   heading ladder collapsed to the label size. A document body or a
+   diff cell is a record being inspected, not the conversation. */
+[data-tf-tool-view-card] [data-tf-markdown] {
+  font-size: --theme(--text-tf-label);
+  line-height: 1.5;
+}
+[data-tf-tool-view-card] [data-tf-markdown] p,
+[data-tf-tool-view-card] [data-tf-markdown] ul,
+[data-tf-tool-view-card] [data-tf-markdown] ol,
+[data-tf-tool-view-card] [data-tf-markdown] blockquote,
+[data-tf-tool-view-card] [data-tf-markdown] table,
+[data-tf-tool-view-card] [data-tf-markdown] hr {
+  margin-block: 0.5rem;
+  line-height: 1.5;
+}
+[data-tf-tool-view-card] [data-tf-markdown] li {
+  margin-block: 0.125rem;
+}
+[data-tf-tool-view-card] [data-tf-markdown] h1,
+[data-tf-tool-view-card] [data-tf-markdown] h2,
+[data-tf-tool-view-card] [data-tf-markdown] h3,
+[data-tf-tool-view-card] [data-tf-markdown] h4,
+[data-tf-tool-view-card] [data-tf-markdown] h5,
+[data-tf-tool-view-card] [data-tf-markdown] h6 {
+  margin-block: 0.75rem 0.25rem;
+  font-size: --theme(--text-tf-label);
+  letter-spacing: 0;
+}
+[data-tf-tool-view-card] [data-tf-markdown] th,
+[data-tf-tool-view-card] [data-tf-markdown] td {
+  padding: 0.25rem 0.5rem;
+}
+
+[data-tf-markdown] :where(:not(pre)) > code {
+  background: var(--_tf-muted);
+  border-radius: calc(var(--_tf-radius) - 2px);
+  padding: 0.125rem 0.375rem;
+  font-size: 0.85em;
+}
+
+/* Highlighted code (both variants): shiki's css-variables theme paints
+   token ink from these — the Graphite ink ladder, not a hue theme, so
+   highlighting reads as emphasis, never as accent color (No-Accent).
+   shiki emits its own <pre>; strip its chrome so the variant's card
+   carries the surface. */
+[data-tf-code-html] pre {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+[data-tf-assistant] {
+  --shiki-foreground: var(--_tf-foreground);
+  --shiki-background: transparent;
+  --shiki-token-comment: var(--_tf-muted-foreground);
+  --shiki-token-keyword: var(--_tf-foreground);
+  --shiki-token-string: var(--_tf-muted-foreground);
+  --shiki-token-constant: var(--_tf-foreground);
+  --shiki-token-function: var(--_tf-foreground);
+  --shiki-token-parameter: var(--_tf-foreground);
+  --shiki-token-punctuation: var(--_tf-muted-foreground);
+  --shiki-token-string-expression: var(--_tf-muted-foreground);
+  --shiki-token-link: var(--_tf-foreground);
+}
+
+/* The markdown leaf outside a widget root: a transcript surface mounted
+   bare — the dashboard's agent-run transcript through ./transcript-ui
+   (the /markdown entry itself is kept public for tarball hosts), or any
+   host consuming the leaves directly — renders these leaves with no
+   [data-tf-assistant] ancestor to alias the theme. The same contract,
+   established on the leaf itself: a host's --tf-* wins, the Graphite
+   default otherwise; dark is the host flipping its --tf-* values (a
+   bare leaf has no data-tf-theme machinery of its own). Only the
+   variables the markdown subtree consumes are aliased. The :not() guard
+   keeps this off widget-hosted markdown, where a leaf-level declaration
+   would out-proximity the root's themed values. */
+[data-tf-markdown]:not([data-tf-assistant] [data-tf-markdown]) {
+  --_tf-foreground: var(--tf-foreground, #171717);
+  --_tf-muted: var(--tf-muted, #f2f2f2);
+  --_tf-muted-foreground: var(--tf-muted-foreground, #4d4d4d);
+  --_tf-border: var(--tf-border, rgba(0, 0, 0, 0.08));
+  --_tf-radius: var(--tf-radius, 0.5rem);
+  --shiki-foreground: var(--_tf-foreground);
+  --shiki-background: transparent;
+  --shiki-token-comment: var(--_tf-muted-foreground);
+  --shiki-token-keyword: var(--_tf-foreground);
+  --shiki-token-string: var(--_tf-muted-foreground);
+  --shiki-token-constant: var(--_tf-foreground);
+  --shiki-token-function: var(--_tf-foreground);
+  --shiki-token-parameter: var(--_tf-foreground);
+  --shiki-token-punctuation: var(--_tf-muted-foreground);
+  --shiki-token-string-expression: var(--_tf-muted-foreground);
+  --shiki-token-link: var(--_tf-foreground);
+}
+
+/* Active reasoning and work labels use a two-layer shadcn-style shimmer:
+   stable muted copy stays readable underneath while a band crosses an
+   aria-hidden duplicate. The base layer is never dimmed — it is the only
+   visible layer wherever the band isn't, and the only one under reduced
+   motion — so any opacity below full drops these 13px labels under the
+   contrast floor. ONE gradient, one colour path: --_tf-shimmer-peak
+   carries the whole per-mode direction, declared beside
+   --_tf-emphasis-mix in exactly its four blocks. A browser without
+   color-mix() drops this declaration and lands on the reduced-motion
+   state — a transparent duplicate over the readable base. */
+@keyframes tf-shimmer {
+  from {
+    background-position: 180% 0;
+  }
+  to {
+    background-position: -180% 0;
+  }
+}
+[data-tf-shimmer-highlight] {
+  /* The duplicate is presentation only — aria-hidden already keeps it
+     from assistive tech, and these keep its (transparent but real)
+     glyphs out of the pointer's selection and the copied transcript. */
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+  color: transparent;
+  background-image: linear-gradient(
+    90deg,
+    transparent 25%,
+    var(--_tf-shimmer-peak) 45% 55%,
+    transparent 75%
+  );
+  background-position: 180% 0;
+  background-size: 175% 100%;
+  background-repeat: no-repeat;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: tf-shimmer 1.35s linear infinite;
+}
+/* The hovered summary's band: every shimmer-hosting summary swaps its
+   ink muted → foreground on hover (hover:text-tf-foreground — the fold,
+   tool, reasoning and subagent group summaries alike), so the band must
+   move away from THAT ink, which in dark mode is the opposite direction
+   from its resting one. Scoped to summary:hover because those are
+   exactly the elements that swap ink; hover grounds stay the page (no
+   shimmer-hosting summary carries a hover background), and translucent
+   data-tf-glass coats over an arbitrary host page stay outside the
+   static contrast guarantee as ever. Declared per mode beside the
+   resting peak. */
+[data-tf-assistant] summary:hover {
+  --_tf-shimmer-peak: var(--_tf-shimmer-peak-hover);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-tf-shimmer-highlight] {
+    animation: none;
+    background-image: none;
+  }
+}
+[data-reduce-motion="true"] [data-tf-shimmer-highlight] {
+  animation: none;
+  background-image: none;
+}
+[data-reduce-motion="true"] [data-tf-working-dot] {
+  animation: none;
+}
+/* THE spinner primitive (streaming-states.tsx's Spinner) under the
+   host's own kill switch: the utility classes only hear the OS media
+   query, and a host that sets data-reduce-motion without it must still
+   stop every spinner the working dot already stops. Every spinner in the
+   package renders through the one primitive, so this one rule is the
+   whole kill switch (TVC-101). */
+[data-reduce-motion="true"] [data-tf-spinner] {
+  animation: none;
+}
+
+/* The composer wash (assistant-ui's treatment): a muted color-mix
+   ground with a breathing shadow that deepens on focus. */
+[data-tf-composer-wash] {
+  background: color-mix(in oklab, var(--_tf-muted) 30%, var(--_tf-background));
+  box-shadow:
+    0 4px 16px -8px rgb(0 0 0 / 0.08),
+    0 1px 2px rgb(0 0 0 / 0.04);
+}
+[data-tf-composer-wash]:focus-within {
+  box-shadow:
+    0 6px 24px -8px rgb(0 0 0 / 0.12),
+    0 1px 2px rgb(0 0 0 / 0.05);
+}
+
+/* The spotlight ring (the highlight builtin): the package's own overlay
+   around a host element — the element itself is never touched. Fixed
+   positioning mirrors getBoundingClientRect coordinates; the JS places
+   and tracks it, this only paints. A brief pulse draws the eye, then
+   stillness; leaving is a fade the JS times. */
+.tf-highlight-ring {
+  position: fixed;
+  z-index: 2147483000;
+  pointer-events: none;
+  border: 2px solid var(--_tf-ring, #0070f7);
+  border-radius: 6px;
+  box-shadow: 0 0 0 4px
+    color-mix(in oklab, var(--_tf-ring, #0070f7) 25%, transparent);
+  opacity: 1;
+  transition: opacity 300ms ease;
+  animation: tf-highlight-pulse 1.2s ease-out 2;
+}
+.tf-highlight-ring[data-tf-highlight-leaving="true"] {
+  opacity: 0;
+}
+@keyframes tf-highlight-pulse {
+  0% {
+    box-shadow: 0 0 0 4px
+      color-mix(in oklab, var(--_tf-ring, #0070f7) 45%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 10px
+      color-mix(in oklab, var(--_tf-ring, #0070f7) 0%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tf-highlight-ring {
+    animation: none;
+    transition-duration: 1ms;
+  }
+}
+[data-reduce-motion="true"] .tf-highlight-ring {
+  animation: none;
+  transition-duration: 1ms;
+}
+
+/* The pill uses the shared, feature-gated glass material. On glass hosts,
+   an opaque ground avoids nested backdrop roots exposing sharp transcript
+   ink — and the portal lift goes with the glass: inside the floating
+   panel the pill is in-flow chrome, so it wears the outline variant's
+   control wash, not the top-layer shadow and specular edge. */
+[data-tf-subagent-pill] > button {
+  font-weight: 400;
+}
+[data-tf-glass] [data-tf-subagent-pill] > [data-tf-glass] {
+  background: var(--_tf-background);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: --theme(--shadow-tf-control);
+}
+
+/* Preserve the rail's entry origin. The full row is a native button;
+   its descendants remain hit-testable, including the failure-note title. */
+button[data-tf-subagent-entry] {
+  border-radius: 0.75rem;
+}
+button[data-tf-subagent-entry]:hover,
+button[data-tf-subagent-entry]:focus-visible {
+  background: var(--_tf-muted);
+}

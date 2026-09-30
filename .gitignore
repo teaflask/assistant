@@ -1,0 +1,18 @@
+node_modules/
+dist/
+*.tgz
+fixtures/*/out/
+# Playwright run artifacts; committed baselines live in *-snapshots/.
+tests-e2e/results/
+playwright-report/
+.DS_Store
+# The styles-prefix oracle probe; pid-suffixed, force-removed in
+# finally, leaked only by a killed worker.
+.bare-candidate-probe.*.tmp.css
+# The PRE-relocation probe name (no pid segment, so the glob above
+# cannot match it); leaked into src/styles/ only by a worker killed on
+# pre-fix code, swept by the next styles-prefix run.
+src/styles/.bare-candidate-probe.tmp.css
+# The dead-declarations law's compile-plant probe: same shape, same
+# lifetime (pid-suffixed, force-removed in finally).
+.dangling-var-probe.*.tmp.css

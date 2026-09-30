@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Transcript — scroll stress</title>
+    <link rel="stylesheet" href="/dist/styles.css" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #f5f2ea;
+        font-family: Georgia, "Times New Roman", serif;
+      }
+      /* The shipping geometry the live capture measured: one column,
+         transcript above a composer-height footer, the scroller filling
+         the rest (clientHeight ≈ 663 at a 902px window). */
+      #root {
+        display: flex;
+        height: 100%;
+        flex-direction: column;
+      }
+      .stress-frame {
+        display: flex;
+        min-height: 0;
+        flex: 1;
+        flex-direction: column;
+        padding: 64px 0 0;
+      }
+      .stress-footer {
+        height: 175px;
+        border-top: 1px dashed #b9b1a0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/fixtures/scroll-stress/out/main.js"></script>
+  </body>
+</html>

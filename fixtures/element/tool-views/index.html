@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Script-tag tool views (Northwind Grocers)</title>
+    <!--
+      The registration door's worked example (npm run fixture:element,
+      port 8790, then /fixtures/element/tool-views/):
+      a plain-HTML host — no build step, no framework — registering tool
+      views on the REAL bundle output through the elements' `toolViews`
+      JS property. Real backend drive rides the URL exactly like the
+      sibling bench: ?pk=pk_test_…&base=http://localhost:<api-port>.
+
+      Two things this page proves on purpose:
+      1. Registration runs BEFORE the bundle's script tag below — script
+         order on a customer page is nobody's to control, and the
+         pre-upgrade expando survives the upgrade.
+      2. The adapters carry their own styles. They render inside the
+         element's shadow root: the page's stylesheets do NOT reach
+         them, only the --tf-* token NAMES inherit through — and those
+         are host INPUTS, unset in an embed like this one that sets no
+         theme, so every var(--tf-*) below pairs with an explicit
+         fallback and dark-awareness rides context.themeMode. Both
+         sanctioned ways through are shown — an adapter-owned <style>
+         element (the view) and inline styles (the icon).
+
+      CSP: the adapters below use only DOM APIs — no eval, no injected
+      scripts. Under a strict policy the <style> route needs a
+      style-src allowance (nonce or 'unsafe-inline') and the inline
+      style attribute route needs style-src-attr, the same caveat class
+      as the element's `theme` property.
+    -->
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 0;
+        padding: 24px;
+        background: #f4f1ea;
+      }
+      /* The shadow-boundary canary: if a registered view turns purple,
+         isolation failed — adapters must get NONE of this. */
+      .nw-inventory,
+      p {
+        outline: 3px dotted purple;
+      }
+      .controls {
+        display: flex;
+        gap: 8px;
+        margin: 16px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Northwind Grocers — script-tag tool views</h1>
+    <p>
+      This page registers a view + icon for the wire key
+      <code>northwind.inventory-check</code> (rung 1) and a view for the exact
+      tool name <code>northwind__check_inventory</code> (rung 2), before the
+      bundle below ever loads.
+    </p>
+
+    <div class="controls">
+      <button id="register-late">
+        register northwind__price_lookup late (reaches on-screen calls)
+      </button>
+    </div>
+
+    <!-- The sized box the page element is owed: the element fills it. -->
+    <div style="height: 560px">
+      <teaflask-assistant-page
+        id="help"
+        heading="Northwind Help"
+      ></teaflask-assistant-page>
+    </div>
+
+    <teaflask-assistant id="widget"></teaflask-assistant>
+
+    <script>
+      const params = new URLSearchParams(location.search);
+      const help = document.getElementById("help");
+      const widget = document.getElementById("widget");
+      for (const element of [help, widget]) {
+        if (params.get("pk")) {
+          element.setAttribute("publishable-key", params.get("pk"));
+        }
+        if (params.get("base")) {
+          element.setAttribute("base-url", params.get("base"));
+        }
+      }
+
+      // ---- The view adapter: plain DOM, plain JS ---------------------
+      // Styling workaround 1: the adapter owns a <style> element inside
+      // its own container, written against the --tf-* tokens (the only
+      // thing that crosses the shadow boundary).
+      const inventoryView = {
+        mount(container, props) {
+          const style = document.createElement("style");
+          // Every var(--tf-*) carries an explicit fallback: the tokens
+          // are host INPUTS — unset in an embed that sets no theme — and
+          // a var() over an unset token voids its whole declaration.
+          // Host-set tokens are single-valued in both modes, so the dark
+          // variant hangs off context.themeMode (the data-mode attribute
+          // render() maintains), never off the tokens. And every
+          // selector is scoped to the .nw-* class on purpose: a <style>
+          // element styles the WHOLE shadow root, not the subtree it
+          // sits in — a bare element selector would restyle the package
+          // surface.
+          style.textContent = [
+            ".nw-inventory {",
+            "  font: 13px/1.4 var(--tf-font-sans, system-ui);",
+            "  color: var(--tf-foreground, #171717);",
+            "  border: 1px solid var(--tf-border, rgba(0, 0, 0, 0.08));",
+            "  border-radius: var(--tf-radius, 8px);",
+            "  padding: 8px 10px;",
+            "}",
+            '.nw-inventory[data-mode="dark"] {',
+            "  color: var(--tf-foreground, #ededed);",
+            "  border-color: var(--tf-border, rgba(255, 255, 255, 0.14));",
+            "}",
+          ].join("\n");
+          const card = document.createElement("div");
+          card.className = "nw-inventory";
+          // One render path over the WHOLE delivery — mount's props carry
+          // the call's current state (a late registration mounts onto an
+          // already-settled call that may never update), and an update can
+          // change context.themeMode alone, so render re-reads both.
+          const render = ({ call, context }) => {
+            card.dataset.mode = context.themeMode;
+            card.textContent =
+              call.status === "output-available"
+                ? "Northwind inventory: " +
+                  (call.resultText ?? "").slice(0, 120) +
+                  " (" +
+                  context.themeMode +
+                  " mode)"
+                : "Checking Northwind inventory…";
+          };
+          render(props);
+          container.append(style, card);
+          return {
+            update: render,
+            destroy() {
+              style.remove();
+              card.remove();
+            },
+          };
+        },
+      };
+
+      // ---- The icon adapter --------------------------------------------
+      // Styling workaround 2: inline styles only — no stylesheet at all.
+      // Same two rules in miniature: the token gets an explicit fallback
+      // (unset by default), and the fallback tracks the mode through
+      // context.themeMode, re-applied on every update.
+      const inventoryIcon = {
+        mount(container, props) {
+          const dot = document.createElement("span");
+          dot.style.cssText =
+            "display:inline-block;width:10px;height:10px;border-radius:50%";
+          const paint = ({ context }) => {
+            dot.style.background =
+              context.themeMode === "dark"
+                ? "var(--tf-primary, #ededed)"
+                : "var(--tf-primary, #171717)";
+          };
+          paint(props);
+          container.append(dot);
+          return {
+            update: paint,
+            destroy() {
+              dot.remove();
+            },
+          };
+        },
+      };
+
+      const registry = {
+        // Rung 1: the opaque wire key a backend display annotation names.
+        "northwind.inventory-check": {
+          version: 1,
+          view: inventoryView,
+          icon: inventoryIcon,
+        },
+        // Rung 2: the host's own exact tool name — no annotation needed.
+        northwind__check_inventory: { version: 1, view: inventoryView },
+      };
+
+      // Assigned BEFORE the module script below defines the elements —
+      // the pre-upgrade expando is reclaimed when the definition loads.
+      // Scoped per element: each instance gets its own assignment.
+      help.toolViews = registry;
+      widget.toolViews = registry;
+
+      document.getElementById("register-late").onclick = () => {
+        // A late registration reaches calls already on screen, not just
+        // future ones — reassign the property with the extra key.
+        help.toolViews = {
+          ...help.toolViews,
+          northwind__price_lookup: { version: 1, view: inventoryView },
+        };
+      };
+    </script>
+    <!-- The real artifact, exactly as the CDN would serve it. -->
+    <script type="module" src="/dist/element/assistant.js"></script>
+  </body>
+</html>

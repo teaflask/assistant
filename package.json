@@ -1,0 +1,152 @@
+{
+  "name": "@teaflask/assistant",
+  "version": "0.3.0",
+  "description": "The teaflask embedded assistant: a drop-in conversation surface over the public /serving/v1 contract.",
+  "license": "Apache-2.0",
+  "author": "Teaflask",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/teaflask/assistant.git"
+  },
+  "homepage": "https://github.com/teaflask/assistant#readme",
+  "bugs": {
+    "url": "https://github.com/teaflask/assistant/issues"
+  },
+  "keywords": [
+    "assistant",
+    "chat",
+    "ai",
+    "react",
+    "embeddable",
+    "widget",
+    "sse"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "files": [
+    "dist",
+    "!dist/element",
+    "!dist/element-build-manifest.json",
+    "src",
+    "!src/element",
+    "!src/element.ts",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./activity": {
+      "types": "./dist/activity.d.ts",
+      "import": "./dist/activity.js",
+      "default": "./dist/activity.js"
+    },
+    "./headless": {
+      "types": "./dist/headless.d.ts",
+      "import": "./dist/headless.js",
+      "default": "./dist/headless.js"
+    },
+    "./markdown": {
+      "types": "./dist/markdown.d.ts",
+      "import": "./dist/markdown.js",
+      "default": "./dist/markdown.js"
+    },
+    "./scroll": {
+      "types": "./dist/scroll.d.ts",
+      "import": "./dist/scroll.js",
+      "default": "./dist/scroll.js"
+    },
+    "./transcript": {
+      "types": "./dist/transcript.d.ts",
+      "import": "./dist/transcript.js",
+      "default": "./dist/transcript.js"
+    },
+    "./transcript-ui": {
+      "types": "./dist/transcript-ui.d.ts",
+      "import": "./dist/transcript-ui.js",
+      "default": "./dist/transcript-ui.js"
+    },
+    "./styles.css": "./dist/styles.css",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && tailwindcss -i src/styles/styles.css -o dist/styles.css --minify",
+    "prepack": "npm run build",
+    "check:package": "attw --pack . --profile esm-only --exclude-entrypoints ./styles.css",
+    "build:element": "node scripts/build-element.mjs",
+    "baseline:bundle": "node scripts/refresh-bundle-baseline.mjs",
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "knip": "KNIP_DISABLE_RAW_TRANSFER=1 knip",
+    "test": "vitest run",
+    "fixture": "npm run build && esbuild fixtures/floating-panel/main.tsx --bundle --jsx=automatic --outfile=fixtures/floating-panel/out/main.js --servedir=. --serve=127.0.0.1:8787",
+    "fixture:companion": "npm run build && esbuild fixtures/companion/main.tsx --bundle --jsx=automatic --loader:.woff=empty --loader:.woff2=empty --loader:.ttf=empty --outfile=fixtures/companion/out/main.js --servedir=. --serve=127.0.0.1:8788",
+    "fixture:batteries": "npm run build && esbuild fixtures/batteries/main.tsx --bundle --jsx=automatic --loader:.woff=empty --loader:.woff2=empty --loader:.ttf=empty --outfile=fixtures/batteries/out/main.js --servedir=. --serve=127.0.0.1:8789",
+    "fixture:transcript": "npm run build && npm run build:element && esbuild fixtures/transcript/main.tsx fixtures/transcript/shadow-probe.tsx --bundle --splitting --format=esm --jsx=automatic --loader:.woff=empty --loader:.woff2=empty --loader:.ttf=empty --outdir=fixtures/transcript/out --servedir=. --serve=127.0.0.1:8787",
+    "fixture:connect": "npm run build && esbuild fixtures/connect/main.tsx --bundle --jsx=automatic --loader:.woff=empty --loader:.woff2=empty --loader:.ttf=empty --outfile=fixtures/connect/out/main.js --servedir=. --serve=127.0.0.1:8791",
+    "fixture:element": "npm run build && npm run build:element && esbuild --servedir=. --serve=127.0.0.1:8790",
+    "test:screenshot": "playwright test",
+    "tvc:contended-arm": "bash scripts/tvc-contended-arm.sh",
+    "generate:api": "orval --config orval.config.ts && node scripts/add-import-extensions.mjs"
+  },
+  "peerDependencies": {
+    "react": "^18.3.0 || ^19.0.0",
+    "react-dom": "^18.3.0 || ^19.0.0",
+    "use-stick-to-bottom": "^1.1.6"
+  },
+  "dependencies": {
+    "@ag-ui/client": "1.0.0",
+    "@ag-ui/core": "1.0.0",
+    "@shikijs/langs": "^4.4.3",
+    "lucide-react": "^1.47.0",
+    "marked": "^18.0.13",
+    "react-markdown": "^10.1.0",
+    "remark-breaks": "^4.0.0",
+    "remark-gfm": "^4.0.1",
+    "rxjs": "^7.8.0",
+    "shiki": "^4.4.3"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.2",
+    "@eslint-community/eslint-plugin-eslint-comments": "^4.8.1",
+    "@playwright/test": "^1.63.0",
+    "@tailwindcss/cli": "^4.1.18",
+    "@types/node": "^26.6.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "esbuild": "^0.28.2",
+    "eslint": "^9.39.2",
+    "eslint-plugin-better-tailwindcss": "^4.6.1",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "jsdom": "^30.1.0",
+    "knip": "^6.37.0",
+    "orval": "8.27.0",
+    "prettier": "3.9.8",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "tailwindcss": "^4.1.18",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.70.1",
+    "use-stick-to-bottom": "1.1.6",
+    "vitest": "^5.0.1",
+    "zod": "3.25.76"
+  },
+  "overrides": {
+    "orval": {
+      "js-yaml": "^4.3.2"
+    }
+  }
+}

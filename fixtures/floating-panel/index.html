@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TfFloatingPanel — hostile-host bench</title>
+    <!-- The package sheet first, the host's own styles after it and
+         unlayered — the loading order a careless host produces, and the
+         one the cross-layer guards exist to survive. -->
+    <link rel="stylesheet" href="/dist/styles.css" />
+    <style>
+      /* The simulated host app. Everything here is deliberately the kind
+         of CSS a real customer page ships: its own utility names, its own
+         reset, stacking-context traps, and a maximal z-index competitor.
+         The bench proves the panel by constructing each hostile condition
+         on demand — the dashboard dogfood is far too polite to test any
+         of this. */
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        background: #f5f2ea;
+        color: #2b2b2b;
+        line-height: 1.5;
+      }
+      /* The historical utility collision: a host build that also
+         generates `.hidden`, declared after the package sheet and outside
+         any layer. The package's own utilities are tf:-prefixed, so this
+         host class cannot touch them — the bench keeps it as the negative
+         specimen the prefix defends against. */
+      .hidden {
+        display: none;
+      }
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 24px 24px 40vh;
+      }
+      .host-card {
+        border: 1px solid #d8d2c2;
+        border-radius: 10px;
+        background: #fffdf7;
+        padding: 16px 20px;
+        margin: 0 0 16px;
+      }
+      .host-controls {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 16px;
+        align-items: center;
+      }
+      .host-controls label {
+        display: inline-flex;
+        gap: 4px;
+        align-items: center;
+        font-size: 14px;
+      }
+      .host-controls button,
+      .host-modal button {
+        font: inherit;
+        padding: 4px 12px;
+        border: 1px solid #8a8467;
+        border-radius: 6px;
+        background: #efe9d9;
+        cursor: pointer;
+      }
+      .host-input {
+        font: inherit;
+        padding: 4px 8px;
+        border: 1px solid #b5ad94;
+        border-radius: 6px;
+      }
+      /* The containing-block trap: a transformed ancestor re-parents any
+         position:fixed descendant. The top layer must not care. */
+      .bench-transformed {
+        transform: translateZ(0);
+      }
+      /* A host theme gone loud, set on an ancestor of the panel: the
+         --tf-* contract says the panel follows it exactly. */
+      .bench-garish {
+        --tf-background: #fff3c4;
+        --tf-foreground: #5b21b6;
+        --tf-border: #ec4899;
+        --tf-primary: #dc2626;
+        --tf-radius: 1.25rem;
+      }
+      /* The stacking competitor: a fixed host element at the z-index
+         ceiling, parked in the panel's own corner. */
+      .bench-z-competitor {
+        position: fixed;
+        right: 8px;
+        bottom: 8px;
+        z-index: 2147483647;
+        width: 300px;
+        padding: 10px 14px;
+        border-radius: 8px;
+        background: #7f1d1d;
+        color: #fff;
+        font-size: 13px;
+      }
+
+      /* The placeholder child, styled by the host — a consumer's own
+         markup inside the panel is host-authored, so the bench's is too. */
+      .panel-handle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 10px 14px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+        cursor: grab;
+        flex-shrink: 0;
+      }
+      .panel-handle strong {
+        font-size: 14px;
+      }
+      .panel-handle button {
+        font: inherit;
+        font-size: 13px;
+        padding: 2px 10px;
+        border: 1px solid currentcolor;
+        border-radius: 999px;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+      }
+      .panel-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 12px 14px;
+        font-size: 13px;
+        flex-shrink: 0;
+      }
+      .panel-field input {
+        font: inherit;
+        padding: 4px 8px;
+        border: 1px solid rgba(0, 0, 0, 0.2);
+        border-radius: 6px;
+        background: transparent;
+        color: inherit;
+      }
+      .panel-scroll {
+        overflow-y: auto;
+        padding: 0 14px 12px;
+        font-size: 13px;
+      }
+      .panel-scroll p {
+        margin: 0 0 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="bench"></div>
+    <script type="module" src="/fixtures/floating-panel/out/main.js"></script>
+  </body>
+</html>

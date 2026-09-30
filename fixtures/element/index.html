@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Element fixture — hostile host page</title>
+    <!--
+      The script-tag distribution's bench (npm run fixture:element,
+      port 8790): a deliberately hostile plain-HTML host driving the
+      REAL bundle output (dist/element/assistant.js), not source. Real
+      backend drive:
+      ?pk=pk_test_…&base=http://localhost:<api-port> with the fixture's
+      origin (http://127.0.0.1:8790) in the key's allowed_origins.
+    -->
+    <style>
+      /* ---- HOSTILE HOST CSS ----------------------------------------- */
+      /* Inherited-property poison: these DO cross a shadow boundary by
+         inheritance; the widget must visibly re-assert its own font/color. */
+      body {
+        font-family: "Comic Sans MS", cursive;
+        color: lime;
+        background: #f5f0e8;
+        margin: 0;
+        padding: 24px;
+      }
+      /* Element-selector poison: must NOT style anything in the shadow tree. */
+      p,
+      button,
+      div {
+        background: red;
+        border: 3px dashed orange;
+      }
+      /* Host "Tailwind-ish" rules: the bleed-out canary. The package
+         sheet lives in the shadow root, so the host's own .flex and its
+         responsive variant must keep working exactly as authored. */
+      .flex {
+        display: flex;
+      }
+      @media (min-width: 768px) {
+        .host-card {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      /* Host layout for the harness itself (also poisoned by div/p rules —
+         that mess is the point; the widget must stay pristine). */
+      .host-card {
+        gap: 12px;
+        padding: 12px;
+        margin-bottom: 16px;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      /* The element renders floating surfaces only (companion popover,
+         palette dialog, drawer) — the host owes it no box at all. */
+      teaflask-assistant {
+        background: none;
+        border: none;
+      }
+      /* The rem row: the uneven-degrade host the rem→px transform exists
+         for. Toggled by the "root font-size" control. */
+      html.tiny-root {
+        font-size: 62.5%;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Hostile host page</h1>
+    <p id="host-probe">
+      Host paragraph — Comic Sans, lime on red, dashed orange border. If the
+      widget looks like this, isolation failed.
+    </p>
+
+    <div class="host-card">
+      <div class="flex" id="host-flex-canary">
+        <span>host .flex canary —&nbsp;</span>
+        <span>must lay out in a row</span>
+      </div>
+      <div id="host-grid-canary">
+        host responsive canary: this card goes 2-column ≥768px
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="toggle-dark">
+        toggle data-tf-theme="dark" on &lt;body&gt;
+      </button>
+      <button id="toggle-reduce-motion">
+        toggle data-reduce-motion="true" on &lt;body&gt;
+      </button>
+      <button id="toggle-token">
+        toggle --tf-primary: crimson on &lt;body&gt;
+      </button>
+      <button id="toggle-tiny-root">toggle html { font-size: 62.5% }</button>
+      <button id="open-palette">openPalette()</button>
+      <button id="assign-navigate">assign onNavigate (log, don't leave)</button>
+      <button id="poke-theme">poke theme property (crimson primary)</button>
+    </div>
+
+    <teaflask-assistant id="assistant"></teaflask-assistant>
+
+    <h2>The page element — same key, one live conversation</h2>
+    <p>
+      A turn typed in the palette or drawer must stream into this page (and the
+      other way round) — two custom elements, two React roots, one store. Detach
+      it mid-conversation and the widget carries on.
+    </p>
+    <div class="controls">
+      <button id="toggle-page">
+        detach/attach &lt;teaflask-assistant-page&gt;
+      </button>
+    </div>
+    <!-- The sized box the page element is owed: the element fills it. -->
+    <div id="page-box" style="height: 560px">
+      <teaflask-assistant-page
+        id="assistant-page"
+        heading="Fixture Help"
+      ></teaflask-assistant-page>
+    </div>
+
+    <script>
+      // pk/base ride the URL: ?pk=pk_test_…&base=http://localhost:55141
+      const params = new URLSearchParams(location.search);
+      const assistant = document.getElementById("assistant");
+      const assistantPage = document.getElementById("assistant-page");
+      if (params.get("pk")) {
+        assistant.setAttribute("publishable-key", params.get("pk"));
+        assistantPage.setAttribute("publishable-key", params.get("pk"));
+      }
+      if (params.get("base")) {
+        assistant.setAttribute("base-url", params.get("base"));
+        assistantPage.setAttribute("base-url", params.get("base"));
+      }
+      // The host's companion mark as an image attribute — the script-tag
+      // route; unset, the element shows the package's flask.
+      assistant.setAttribute(
+        "companion-mark-src",
+        "data:image/svg+xml," +
+          encodeURIComponent(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="14" fill="#ff6b35"/><circle cx="16" cy="16" r="6" fill="#ffffff"/></svg>',
+          ),
+      );
+
+      // Assigned BEFORE the module script defines the element — the
+      // upgrade-dance proof: this expando must survive as drawer
+      // suggestions once the definition loads.
+      assistant.suggestions = [
+        "What can you do?",
+        { prompt: "The pre-upgrade property survived", kind: "learn" },
+        // A plain-JS host has no compiler: an unrecognized kind must
+        // degrade to the default glyph, never crash the surface.
+        { prompt: "An unknown kind still renders", kind: "not-a-kind" },
+      ];
+
+      document.getElementById("toggle-dark").onclick = () => {
+        const body = document.body;
+        if (body.dataset.tfTheme === "dark") delete body.dataset.tfTheme;
+        else body.dataset.tfTheme = "dark";
+      };
+      document.getElementById("toggle-reduce-motion").onclick = () => {
+        const body = document.body;
+        if (body.dataset.reduceMotion === "true")
+          delete body.dataset.reduceMotion;
+        else body.dataset.reduceMotion = "true";
+      };
+      document.getElementById("toggle-token").onclick = () => {
+        const body = document.body;
+        if (body.style.getPropertyValue("--tf-primary")) {
+          body.style.removeProperty("--tf-primary");
+        } else {
+          body.style.setProperty("--tf-primary", "crimson");
+        }
+      };
+      document.getElementById("toggle-tiny-root").onclick = () => {
+        document.documentElement.classList.toggle("tiny-root");
+      };
+      document.getElementById("open-palette").onclick = () => {
+        assistant.openPalette();
+      };
+      document.getElementById("assign-navigate").onclick = () => {
+        // Default (unset) is a full-page location.assign; this override
+        // proves property assignment wins.
+        assistant.onNavigate = (path) => {
+          console.log("[host] onNavigate:", path);
+        };
+      };
+      document.getElementById("toggle-page").onclick = () => {
+        // Exercises the registry's ref-count live: detaching releases
+        // the page's retain while the widget keeps the shared store
+        // alive, so re-attaching rejoins the same conversation mid-turn.
+        if (assistantPage.isConnected) {
+          assistantPage.remove();
+        } else {
+          document.getElementById("page-box").appendChild(assistantPage);
+        }
+      };
+      document.getElementById("poke-theme").onclick = () => {
+        // A fresh object every click — value semantics must hold (no
+        // conversation reset).
+        assistant.theme = assistant.theme
+          ? undefined
+          : { primary: "crimson", primaryForeground: "#ffffff" };
+      };
+    </script>
+    <!-- The real artifact, exactly as the CDN would serve it. -->
+    <script type="module" src="/dist/element/assistant.js"></script>
+  </body>
+</html>

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AssistantCompanion — presence bench</title>
+    <!-- The package sheet first, host styles after — the careless-host
+         loading order, same stance as the floating-panel bench. -->
+    <link rel="stylesheet" href="../../dist/styles.css" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        background: #f5f2ea;
+        color: #2b2b2b;
+        line-height: 1.5;
+      }
+      main {
+        max-width: 44rem;
+        padding: 2rem;
+      }
+      fieldset {
+        border: 1px solid #c9c2b2;
+        margin: 0 0 1rem;
+        padding: 0.75rem 1rem 1rem;
+      }
+      legend {
+        font-weight: bold;
+        padding: 0 0.375rem;
+      }
+      button {
+        margin: 0.2rem 0.25rem 0 0;
+        font: inherit;
+        padding: 0.25rem 0.6rem;
+      }
+      /* The stacking-context trap: the page content lives inside a
+         transformed ancestor, which would capture a position:fixed
+         companion. The top-layer dock must not care. */
+      .transformed {
+        transform: translateZ(0);
+      }
+      .garish {
+        background: repeating-linear-gradient(
+          45deg,
+          #ffd23f,
+          #ffd23f 24px,
+          #ff6b35 24px,
+          #ff6b35 48px
+        );
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./out/main.js"></script>
+  </body>
+</html>
