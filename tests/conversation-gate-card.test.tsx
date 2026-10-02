@@ -27,14 +27,14 @@ vi.mock("../src/components/transcript", () => ({
 
 const api = vi.hoisted(() => ({
   begin: vi.fn(),
-  poll: vi.fn(),
+  complete: vi.fn(),
   disconnect: vi.fn(),
 }));
 vi.mock("../src/transport/serving-api", () => ({
-  beginSubscriptionDeviceAuthorization: (...args: unknown[]) =>
+  beginSubscriptionAuthorization: (...args: unknown[]) =>
     api.begin(...args) as unknown,
-  pollSubscriptionDeviceAuthorization: (...args: unknown[]) =>
-    api.poll(...args) as unknown,
+  completeSubscriptionAuthorization: (...args: unknown[]) =>
+    api.complete(...args) as unknown,
   disconnectSubscription: (...args: unknown[]) =>
     api.disconnect(...args) as unknown,
 }));
@@ -122,7 +122,7 @@ let root: Root;
 beforeEach(() => {
   vi.clearAllMocks();
   sessionFixture.value = {
-    session: {},
+    session: { baseUrl: "https://api.example.test" },
     tier: "identified",
     conversationGate: new ObservableCell<ConversationGate>(NO_GATE),
     subscriptions: new ObservableCell<SubscriptionStatus[] | null>(null),
@@ -392,7 +392,7 @@ describe("the gated welcome", () => {
 });
 
 describe("the waiting arm's exit", () => {
-  it("Start over abandons the handle and returns to the ask", async () => {
+  it("Start over abandons the sign-in and returns to the ask", async () => {
     setGate({
       kind: "connect",
       reason: "taster_exhausted",
@@ -400,27 +400,29 @@ describe("the waiting arm's exit", () => {
     });
     setStatuses([OFFERED_UNCONNECTED]);
     renderView();
+    const opened = vi.spyOn(window, "open").mockReturnValue(null);
     api.begin.mockResolvedValueOnce({
-      user_code: "ZZZZ-TESTA",
-      verification_url:
-        "https://auth.openai.com/codex/device?user_code=ZZZZ-TESTA",
-      interval: 5,
-      sealed_authorization: "chatgpt-device-v1:sealed",
+      authorize_url:
+        "https://auth.openai.com/api/accounts/authorize?state=sealed",
+      expires_in: 600,
     });
     await act(async () => {
       buttonByText("Sign in with ChatGPT")?.click();
       await Promise.resolve();
     });
-    expect(container.textContent).toContain("Waiting for approval…");
-    expect(container.textContent).toContain(
-      "Approve the connection in ChatGPT",
+    expect(opened).toHaveBeenCalledWith(
+      "https://auth.openai.com/api/accounts/authorize?state=sealed",
+      "_blank",
+      "popup,width=520,height=720",
     );
+    expect(container.textContent).toContain("Waiting for ChatGPT…");
+    expect(container.textContent).toContain("Finish signing in to ChatGPT");
 
     act(() => {
       buttonByText("Start over")?.click();
     });
 
-    expect(container.textContent).not.toContain("Waiting for approval…");
+    expect(container.textContent).not.toContain("Waiting for ChatGPT…");
     expect(buttonByText("Sign in with ChatGPT")).not.toBeNull();
   });
 });

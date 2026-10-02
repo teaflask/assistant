@@ -4,7 +4,8 @@
 // components never see the generated layer.
 
 import {
-  createDeviceAuthorization as createDeviceAuthorizationOperation,
+  beginSubscriptionAuthorization as beginSubscriptionAuthorizationOperation,
+  completeSubscriptionAuthorization as completeSubscriptionAuthorizationOperation,
   createServingAttachmentUpload as createServingAttachmentUploadOperation,
   disconnectSubscription as disconnectSubscriptionOperation,
   finalizeServingAttachment as finalizeServingAttachmentOperation,
@@ -13,7 +14,6 @@ import {
   listServingAssistantThreadDispatches as listServingAssistantThreadDispatchesOperation,
   listServingAssistantThreads as listServingAssistantThreadsOperation,
   listServingSubscriptions as listServingSubscriptionsOperation,
-  pollDeviceAuthorization as pollDeviceAuthorizationOperation,
   readAssistantConfig as readAssistantConfigOperation,
   resolveServingAssistantTurnApproval as resolveServingAssistantTurnApprovalOperation,
   resolveServingAssistantTurnToolResults as resolveServingAssistantTurnToolResultsOperation,
@@ -41,8 +41,9 @@ import type {
   StopTurnResponse,
 } from "../contract/threads.js";
 import type {
-  SubscriptionDeviceAuthorization,
-  SubscriptionDeviceAuthorizationPoll,
+  SubscriptionAuthorization,
+  SubscriptionAuthorizationCompletion,
+  SubscriptionAuthorizationCompletionRequest,
   SubscriptionProvider,
   SubscriptionStatus,
 } from "../contract/subscriptions.js";
@@ -166,21 +167,33 @@ export async function listSubscriptions(
   return response.subscriptions;
 }
 
-export async function beginSubscriptionDeviceAuthorization(
+/** Mints one Sign in with ChatGPT: the URL the widget opens in a popup
+ *  and how long it stays claimable. The server's callback page posts the
+ *  provider's code back to the opener (never a result); the widget then
+ *  finishes with completeSubscriptionAuthorization under its own bearer.
+ *  Nothing is polled. */
+export async function beginSubscriptionAuthorization(
   session: TokenSession,
   provider: SubscriptionProvider,
-): Promise<SubscriptionDeviceAuthorization> {
-  return createDeviceAuthorizationOperation(provider, _withSession(session));
+): Promise<SubscriptionAuthorization> {
+  return beginSubscriptionAuthorizationOperation(
+    provider,
+    _withSession(session),
+  );
 }
 
-export async function pollSubscriptionDeviceAuthorization(
+/** Finishes one Sign in with ChatGPT with the code and sealed state the
+ *  callback page posted. The server refuses a state begun under another
+ *  visitor's bearer, a spent state, and an expired one — all with one
+ *  coarse code — so the finish is bound to the browser that began. */
+export async function completeSubscriptionAuthorization(
   session: TokenSession,
   provider: SubscriptionProvider,
-  sealedAuthorization: string,
-): Promise<SubscriptionDeviceAuthorizationPoll> {
-  return pollDeviceAuthorizationOperation(
+  request: SubscriptionAuthorizationCompletionRequest,
+): Promise<SubscriptionAuthorizationCompletion> {
+  return completeSubscriptionAuthorizationOperation(
     provider,
-    { sealed_authorization: sealedAuthorization },
+    request,
     _withSession(session),
   );
 }

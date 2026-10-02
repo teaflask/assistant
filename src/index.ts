@@ -76,12 +76,16 @@ export type {
   VisitorTier,
   WhoamiResponse,
 } from "./contract/identity.js";
-export type {
-  SubscriptionCredentialState,
-  SubscriptionDeviceAuthorization,
-  SubscriptionDeviceAuthorizationPoll,
-  SubscriptionProvider,
-  SubscriptionStatus,
+export {
+  SUBSCRIPTION_CONNECT_MESSAGE_TYPE,
+  subscriptionConnectMessageOf,
+  type SubscriptionAuthorization,
+  type SubscriptionAuthorizationCompletion,
+  type SubscriptionAuthorizationCompletionRequest,
+  type SubscriptionConnectMessage,
+  type SubscriptionCredentialState,
+  type SubscriptionProvider,
+  type SubscriptionStatus,
 } from "./contract/subscriptions.js";
 export {
   ASSISTANT_MESSAGE_MAX_CHARS,

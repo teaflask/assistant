@@ -77,8 +77,8 @@ vi.mock("../src/transport/serving-api", () => {
     finalizeAttachment: pending(),
     getAttachmentDownloadUrl: pending(),
     listSubscriptions: pending(),
-    beginSubscriptionDeviceAuthorization: pending(),
-    pollSubscriptionDeviceAuthorization: pending(),
+    beginSubscriptionAuthorization: pending(),
+    completeSubscriptionAuthorization: pending(),
     disconnectSubscription: pending(),
     putFileToUploadUrl: pending(),
     streamUrlForThread: vi.fn(

@@ -1,6 +1,6 @@
 {
   "name": "@teaflask/assistant",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "The teaflask embedded assistant: a drop-in conversation surface over the public /serving/v1 contract.",
   "license": "Apache-2.0",
   "author": "Teaflask",

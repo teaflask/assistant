@@ -14,6 +14,29 @@ additive-only freeze switches on: from then the package's public surface
 follows the same rule the serving contract already applies to the wire —
 changes are additive only; nothing is renamed, removed, or made stricter.
 
+## 0.5.0 — 2026-10-02
+
+The subscription connect flow uses Sign in with ChatGPT in a popup; the
+device-authorization exports are removed.
+
+### `SubscriptionAuthorization` and the completion replace the device-authorization types (breaking)
+
+`beginSubscriptionAuthorization` answers `SubscriptionAuthorization`
+(`authorize_url`, `expires_in`): the connect opens that URL in a popup
+and the end user approves in their own ChatGPT session. The server's
+callback page posts one message to the page that opened the popup —
+`SubscriptionConnectMessage`, parsed with `subscriptionConnectMessageOf`
+(origin- and source-checked), typed `SUBSCRIPTION_CONNECT_MESSAGE_TYPE` —
+carrying the provider's code, and the widget finishes under its own
+visitor token with `completeSubscriptionAuthorization`
+(`SubscriptionAuthorizationCompletionRequest` → `SubscriptionAuthorizationCompletion`).
+A sign-in begun by one visitor cannot be completed by another.
+`SubscriptionDeviceAuthorization` and `SubscriptionDeviceAuthorizationPoll`
+are gone with the device code, the poll loop and the "turn on device
+codes" hint; the waiting arm says to finish signing in in the window
+that opened, offers the link again in case the popup was blocked, and
+ends at the sign-in's own expiry.
+
 ## 0.4.0 — 2026-10-02
 
 The assistant now knows whose it is.

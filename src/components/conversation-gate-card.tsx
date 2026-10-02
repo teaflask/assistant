@@ -22,7 +22,7 @@ import { useCell } from "./use-store-cell.js";
 // banner, 2026-08-20) — never a takeover of the input. One tinted strip:
 // the state as a sentence on the left, one intrinsic-width action on the
 // right, and the composer stays where it always is. Starting the connect
-// expands the device-code flow inside the same strip; a landed
+// expands the sign-in flow inside the same strip; a landed
 // credential clears the gate on the next projection read and the banner
 // simply leaves.
 
@@ -56,11 +56,10 @@ export function ConversationGateCard({
 
   // Every refresh the flow performs also re-reads the projection: the
   // probe settling active is what clears this banner. Memoized on the
-  // stable session: the flow's poll effect and the verifying chain key
-  // their dependency arrays on this callback, and a fresh identity per
-  // render would tear them down mid-flight — the poll re-arming from
-  // scratch on every re-render, the chain's attempts counter resetting
-  // and defeating its own bound.
+  // stable session: the flow's re-read chain keys its dependency array
+  // on this callback, and a fresh identity per render would tear it
+  // down mid-flight — its attempts counter resetting and defeating its
+  // own bound.
   const refreshStandingAndGate = useCallback(() => {
     session.refreshSubscriptions();
     session.refreshAssistantConfig();
@@ -113,8 +112,8 @@ function ConnectBannerRow({
   const name = providerNameOf(status.provider);
   const connect = useSubscriptionConnectFlow(status, session.session, refresh);
 
-  // A running (or failed) flow expands inside the strip — the code, the
-  // approve link, and the waiting line replace the one-row ask.
+  // A running (or failed) flow expands inside the strip — the sign-in
+  // headline, the link and the waiting line replace the one-row ask.
   if (connect.flow.kind !== "idle") {
     return (
       <ConnectFlow

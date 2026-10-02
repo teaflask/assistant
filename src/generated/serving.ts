@@ -6,7 +6,9 @@
  */
 import type {
   AssistantConfigResponse,
-  CreateDeviceAuthorizationResponse,
+  BeginSubscriptionAuthorizationResponse,
+  CompleteSubscriptionAuthorizationRequest,
+  CompleteSubscriptionAuthorizationResponse,
   CreateServingAttachmentUploadRequest,
   CreateServingAttachmentUploadResponse,
   CurrentVisitorResponse,
@@ -14,8 +16,6 @@ import type {
   ListServingAssistantThreadsParams,
   MintVisitorTokenRequest,
   MintVisitorTokenResponse,
-  PollDeviceAuthorizationRequest,
-  PollDeviceAuthorizationResponse,
   ResolveServingTurnApprovalRequest,
   ResolveServingTurnApprovalResponse,
   ResolveServingTurnToolResultsRequest,
@@ -505,24 +505,25 @@ export const listServingSubscriptions = async (
   );
 };
 
-export const getCreateDeviceAuthorizationUrl = (
+export const getBeginSubscriptionAuthorizationUrl = (
   provider: SubscriptionProvider,
 ) => {
-  return `/serving/v1/subscriptions/${provider}/device-authorizations`;
+  return `/serving/v1/subscriptions/${provider}/authorizations`;
 };
 
 /**
- * Begin one device authorization: mint the provider's user code and
- * hand the flow back as a sealed handle. Nothing is stored — an
- * abandoned flow costs nothing and expires inside its own handle.
- * @summary Create Device Authorization
+ * Mint one sign-in: the authorize URL the widget opens in a popup.
+ * Nothing is stored and no provider is dialled — the sealed state
+ * inside the URL is the whole in-flight memory, so an abandoned popup
+ * costs nothing and expires inside its own state.
+ * @summary Begin Subscription Authorization
  */
-export const createDeviceAuthorization = async (
+export const beginSubscriptionAuthorization = async (
   provider: SubscriptionProvider,
   options?: Parameters<typeof servingFetch>[1],
-): Promise<CreateDeviceAuthorizationResponse> => {
-  return servingFetch<CreateDeviceAuthorizationResponse>(
-    getCreateDeviceAuthorizationUrl(provider),
+): Promise<BeginSubscriptionAuthorizationResponse> => {
+  return servingFetch<BeginSubscriptionAuthorizationResponse>(
+    getBeginSubscriptionAuthorizationUrl(provider),
     {
       ...options,
       method: "POST",
@@ -530,24 +531,27 @@ export const createDeviceAuthorization = async (
   );
 };
 
-export const getPollDeviceAuthorizationUrl = (
+export const getCompleteSubscriptionAuthorizationUrl = (
   provider: SubscriptionProvider,
 ) => {
-  return `/serving/v1/subscriptions/${provider}/device-authorizations/poll`;
+  return `/serving/v1/subscriptions/${provider}/authorizations/complete`;
 };
 
 /**
- * One poll of the provider's token door. On approval this is the
- * moment the credential is born: seal, store VERIFYING, start the
- * probe — the raw tokens exist in this process only for the duration
- * of the seal (billing's paste door is the sibling).
- * @summary Poll Device Authorization
+ * The connect moment, under the beginner's own bearer: the state must
+ * be this visitor's (same organization, key, end user and provider) and
+ * unspent; the offer, the storage key and the configuration are re-read
+ * (a withdrawn offer or a flipped flag refuses before a credential is
+ * born); then the exchange, the identity check, the seal, the probe.
+ * The raw tokens exist in this process only for the duration of the
+ * seal.
+ * @summary Complete Subscription Authorization
  */
-export const pollDeviceAuthorization = async (
+export const completeSubscriptionAuthorization = async (
   provider: SubscriptionProvider,
-  pollDeviceAuthorizationRequest: PollDeviceAuthorizationRequest,
+  completeSubscriptionAuthorizationRequest: CompleteSubscriptionAuthorizationRequest,
   options?: Parameters<typeof servingFetch>[1],
-): Promise<PollDeviceAuthorizationResponse> => {
+): Promise<CompleteSubscriptionAuthorizationResponse> => {
   const getHeaders = (
     h?: NonNullable<RequestInit["headers"]>,
   ): Record<string, string | readonly string[]> => {
@@ -556,8 +560,8 @@ export const pollDeviceAuthorization = async (
     if (Array.isArray(h)) return Object.fromEntries(h);
     return h;
   };
-  return servingFetch<PollDeviceAuthorizationResponse>(
-    getPollDeviceAuthorizationUrl(provider),
+  return servingFetch<CompleteSubscriptionAuthorizationResponse>(
+    getCompleteSubscriptionAuthorizationUrl(provider),
     {
       ...options,
       method: "POST",
@@ -565,7 +569,7 @@ export const pollDeviceAuthorization = async (
         "Content-Type": "application/json",
         ...getHeaders(options?.headers),
       },
-      body: JSON.stringify(pollDeviceAuthorizationRequest),
+      body: JSON.stringify(completeSubscriptionAuthorizationRequest),
     },
   );
 };

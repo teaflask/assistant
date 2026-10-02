@@ -32,14 +32,14 @@ import { ModelPickerShelf } from "../src/components/model-picker-chip";
 
 const api = vi.hoisted(() => ({
   begin: vi.fn(),
-  poll: vi.fn(),
+  complete: vi.fn(),
   disconnect: vi.fn(),
 }));
 vi.mock("../src/transport/serving-api", () => ({
-  beginSubscriptionDeviceAuthorization: (...args: unknown[]) =>
+  beginSubscriptionAuthorization: (...args: unknown[]) =>
     api.begin(...args) as unknown,
-  pollSubscriptionDeviceAuthorization: (...args: unknown[]) =>
-    api.poll(...args) as unknown,
+  completeSubscriptionAuthorization: (...args: unknown[]) =>
+    api.complete(...args) as unknown,
   disconnectSubscription: (...args: unknown[]) =>
     api.disconnect(...args) as unknown,
 }));
@@ -114,7 +114,7 @@ let setModelPick: ReturnType<typeof vi.fn<(pick: ComposerModelPick) => void>>;
 beforeEach(() => {
   vi.clearAllMocks();
   sessionFixture.value = {
-    session: {},
+    session: { baseUrl: "https://api.example.test" },
     tier: null,
     // Answered from the start: the fetch has settled in every test but
     // the fetch-window one, which resets it itself.
@@ -484,7 +484,7 @@ describe("the shelf: two controls", () => {
   it("connecting never touches the pick — model and effort survive the account flow", () => {
     api.begin.mockReturnValue(
       new Promise(() => {
-        // Held open: the flow's own suite covers the device-code dance.
+        // Held open: the flow's own suite covers the sign-in popup.
       }),
     );
     offerAProvider();

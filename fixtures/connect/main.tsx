@@ -1,9 +1,12 @@
 // The connect-flow bench: the identified widget against a LOCAL api,
-// for driving the device-code connect flow end to end. Run `npm run
+// for driving the Sign in with ChatGPT connect flow end to end. Run `npm run
 // fixture:connect` and open http://127.0.0.1:8791/fixtures/connect/
 // with:
 //   ?pk=<publishable key>   — a key whose allowlist carries this origin
-//   &base=<api base url>    — defaults to http://localhost:8000
+//   &base=<api base url>    — defaults to http://127.0.0.1:8000, the only
+//                              host a local sign-in redirect may name; the
+//                              callback page posts from that origin, and the
+//                              widget accepts messages from its base origin alone
 // The end-user JWT — signed with the org's serving identity secret; the
 // identified tier is the whole point, and without it the chip never
 // shows — is pasted into the token field on the page, NEVER the URL: a
@@ -17,7 +20,7 @@
 // instead.
 // The org's published assistant must offer the provider
 // (end_users.subscriptions) or the composer shelf shows no provider
-// chip. Connecting begins a REAL device authorization at the provider.
+// chip. Connecting opens a REAL sign-in popup at the provider.
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -122,7 +125,7 @@ if (scrubbedHref !== null) {
 
 const params = new URLSearchParams(location.search);
 const publishableKey = params.get("pk") ?? "";
-const baseUrl = params.get("base") ?? "http://localhost:8000";
+const baseUrl = params.get("base") ?? "http://127.0.0.1:8000";
 const tokenStorageKey = tokenStorageKeyOf(baseUrl, publishableKey);
 const endUserToken = sessionStorage.getItem(tokenStorageKey);
 
