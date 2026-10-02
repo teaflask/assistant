@@ -10,4 +10,5 @@ export interface MintVisitorTokenResponse {
   visitor_token: string;
   expires_in: number;
   tier: VisitorTier;
+  end_user_id?: string | null;
 }

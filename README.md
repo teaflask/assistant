@@ -135,7 +135,8 @@ of these:
 | ----------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `publishableKey`  | **yes**  | Your site's key (`pk_live_…` / `pk_test_…`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `baseUrl`         | no       | The teaflask API origin. Defaults to `https://api.teaflask.com`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `getEndUserToken` | no       | Async callback returning your backend-signed end-user JWT (see the serving identity contract), or null while signed out. Unlocks the identified tier: cross-device history and the thread list. Called on every token mint, so a rotated JWT is always picked up.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `userId`          | paired   | Your stable id for the signed-in user — the same id your backend signs into the end-user token. Set it together with `getEndUserToken`, or set neither: the props type refuses one without the other, and a plain-JS host that passes one half alone, or an empty id, gets an anonymous session and one console warning. See Who the assistant belongs to below.                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `getEndUserToken` | paired   | Async callback returning your backend-signed end-user JWT (see the serving identity contract), or null while signed out. Unlocks the identified tier: cross-device history and the thread list. Called on every token mint, so a rotated JWT is always picked up. Always paired with `userId`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `actionsAdapter`  | no       | How this page performs the actions your teaflask catalog grants — one adapter for the whole catalog, in three flavors (see Actions below). Absent means this surface cannot perform actions; the assistant is told so in-band.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `onNavigate`      | no       | Callback taking the visitor to an app-relative path when the assistant asks (the navigate capability). Absent means this surface cannot navigate; the assistant gives the user directions instead.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `onError`         | no       | Observer for transport and stream errors (the surface already renders honest error states on its own).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -144,11 +145,31 @@ of these:
 | `toolViews`       | no       | Your own presentation for your own tools: a registry of tool views keyed by the opaque keys your backend's display annotations name, or by your exact tool names (see Custom tool views below). Resolution walks a fixed ladder — exact key-and-version, exact tool name, package built-ins, the package default — and a throwing view falls to the rung below. Script-tag hosts register the same registry through the element's `toolViews` property (see Custom tool views from a script tag).                                                                                                                                                                                                                                                                                |
 
 Providers with the same session identity — `publishableKey`, `baseUrl`,
-and whether `getEndUserToken` is wired — share one live conversation,
-even when they mount in separate React roots: every surface streams the
-same turn. The conversation is released when the last such provider
-unmounts. (A setup failure on that identity — a bad key, a disallowed
-origin — therefore surfaces on all of them at once.)
+and `userId` — share one live conversation, even when they mount in
+separate React roots: every surface streams the same turn. The
+conversation is released when the last such provider unmounts. (A setup
+failure on that identity — a bad key, a disallowed origin — therefore
+surfaces on all of them at once.)
+
+### Who the assistant belongs to
+
+The assistant belongs to `userId`. When it changes — including to
+`undefined` on sign-out — everything from the previous user is dropped
+at once: the history list, the open conversation and its transcript, the
+visitor token, pending approvals and elicitations, and the saved "last
+conversation". A fresh session starts for the new value, so a tab that
+stayed mounted while the account changed elsewhere never shows the
+previous account's conversations. (The saved pointer itself is resumed
+only by the user it was written for — an anonymous session leaves it in
+storage for them, another user's session removes it, and `resetAssistant`
+clears it on sign-out.) Keep `userId` current from your own
+session (an auth-state listener), never from the token; the server names
+the user it minted for, and a mint that disagrees with `userId` after one
+retry is refused as a setup error — "The signed-in user this page names
+is not the user the server verified. Keep userId in step with the user
+your backend signs the end-user token for." — rather than served. A
+conversation started anonymously is still claimed on sign-in, exactly as
+before.
 
 ### Actions
 
@@ -189,6 +210,18 @@ const actionsAdapter = {
 
 The teaflask dashboard's Actions setup card generates the exact snippet
 for your repo (including a detected API client, when there is one).
+
+### Links and images in a reply
+
+Every link in a reply opens in a new tab with `rel="noopener noreferrer"`.
+A reply never loads an image: a markdown image is a fetch the reader did
+not ask for, and a reply steered by a hostile page could aim that fetch
+at any host with whatever the agent had read in the query string. The
+transcript renders the image as a label behind a muted "Image:" marker —
+the alt text, else the URL's file name — as a link the reader may open
+when the URL is http(s), plain text otherwise — and leaves raw HTML as
+the text it is. This holds inside the script-tag element too, under your
+page's own Content-Security-Policy or none.
 
 ### Custom tool views
 
@@ -376,9 +409,9 @@ function GetDocView({ call }: ToolViewProps<GetDocArgs, GetDocResult>) {
 **Approval is the package's own banner.** The approval banner uses fixed
 consent copy and a mechanically spelled tool name, and renders nothing
 argument-derived — the call's own transcript row, which a pending
-decision holds open, carries the request, and a Show-request affordance
-scrolls to it. It is not replaceable by host code: a view presents a tool
-call and never owns its decision (`docs/tool-views.md`).
+decision holds open, carries the request. It is not replaceable by host
+code: a view presents a tool call and never owns its decision
+(`docs/tool-views.md`).
 
 **Failure is safe and observable.** A missing registration, an unknown
 key, a version mismatch, or a view that throws all land on the rung
@@ -728,7 +761,9 @@ package's own chrome.
 
 Call `resetAssistant` in your sign-out handler so the next visitor on
 the browser starts clean. It is pure storage — it works on pages where
-the assistant isn't mounted:
+the assistant isn't mounted (a mounted assistant already drops the
+previous user's state the moment `userId` changes; this clears what
+storage keeps for the next visitor):
 
 ```ts
 import { resetAssistant } from "@teaflask/assistant";
@@ -786,13 +821,13 @@ but the global HTML `title` attribute would tooltip the whole surface,
 so the attribute wears a different name) and `frameless` (drops the
 card border and radius — a bare attribute or `"true"` enables,
 `"false"` disables, anything else warns once and keeps the default).
-The rich JS properties are the same seven as the widget's table below,
+The rich JS properties are the same eight as the widget's table below,
 with identical null semantics; `suggestions` become the page's opening
 prompts. The page has no companion, palette, or hotkey — pair it with
 `<teaflask-assistant>` when you want those too.
 
 **Same key, one live conversation.** Elements whose session identity
-matches (publishable key, `base-url`, identity wiring) share one
+matches (publishable key, `base-url`, `userId`) share one
 conversation store even across their separate roots: a turn typed in
 the widget streams into the open page, and the other way round. While
 a page element is mounted, the widget's companion yields to it — the
@@ -839,7 +874,8 @@ both work.
 | Property          | React prop equivalent                                 |
 | ----------------- | ----------------------------------------------------- |
 | `onNavigate`      | `onNavigate` (see Navigation)                         |
-| `getEndUserToken` | `getEndUserToken`                                     |
+| `userId`          | `userId` (set together with `getEndUserToken`)        |
+| `getEndUserToken` | `getEndUserToken` (set together with `userId`)        |
 | `actionsAdapter`  | `actionsAdapter`                                      |
 | `onError`         | `onError`                                             |
 | `theme`           | `theme`                                               |

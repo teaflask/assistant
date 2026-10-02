@@ -134,77 +134,12 @@ describe("the generic approval banner", () => {
   });
 });
 
-describe("the Show-request affordance", () => {
-  it("offers Show request only when the card knows its call", () => {
+describe("the banner header", () => {
+  it("offers no navigation to the call's row", () => {
+    // The pending decision already holds the call's row open.
     render(cardOf());
-    // Selected by its identity hook, like the banner's other regions —
-    // the hook is contract, not decoration.
-    const affordance = host.querySelector<HTMLButtonElement>(
-      "[data-tf-approval-show-request]",
-    );
-    expect(affordance?.textContent).toBe("Show request");
-    expect(affordance).toBe(buttonNamed("Show request"));
-
-    render(cardOf({ toolCallId: null }));
     expect(host.querySelector("[data-tf-approval-show-request]")).toBeNull();
     expect(buttonNamed("Show request")).toBeUndefined();
-  });
-
-  it("reveals a member-collapsed row AND its collapsed fold, then scrolls the row's summary", () => {
-    // The adversarial state, not the happy path (round-1 finding, 3/3
-    // reviewers): both collapses are member-reachable and sticky — a
-    // member's collapse of a held row sticks until a genuine arrival,
-    // and one toggle pins the enclosing fold permanently — so the
-    // affordance must ESTABLISH the open state, not assume the hold.
-    // With the fold closed the row has no box at all, so a scroll
-    // without the reveal is a dead button.
-    const scrollIntoView = vi.fn();
-    Element.prototype.scrollIntoView = scrollIntoView;
-    const fold = document.createElement("details"); // closed: member-pinned fold
-    fold.appendChild(document.createElement("summary"));
-    const foldBody = document.createElement("div");
-    const row = document.createElement("details"); // closed: member-collapsed row
-    row.setAttribute("data-tf-tool-call-id", "run-1-a1-t1");
-    const rowSummary = document.createElement("summary");
-    row.appendChild(rowSummary);
-    foldBody.appendChild(row);
-    fold.appendChild(foldBody);
-    document.body.appendChild(fold);
-    try {
-      render(cardOf());
-      act(() => {
-        buttonNamed("Show request")?.click();
-      });
-      // The member-initiated reveal opened the row and every enclosing
-      // fold before scrolling…
-      expect(row.open).toBe(true);
-      expect(fold.open).toBe(true);
-      // …and the scroll landed on the row's own summary.
-      expect(scrollIntoView).toHaveBeenCalledTimes(1);
-      expect(scrollIntoView.mock.instances[0]).toBe(rowSummary);
-      expect(scrollIntoView).toHaveBeenCalledWith(
-        expect.objectContaining({ block: "center", inline: "nearest" }),
-      );
-    } finally {
-      fold.remove();
-      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
-    }
-  });
-
-  it("is a quiet no-op when no row carries the call", () => {
-    // A REST-recovered pause whose call never reached the transcript, or
-    // a pruned history: the banner never throws and scrolls nothing.
-    const scrollIntoView = vi.fn();
-    Element.prototype.scrollIntoView = scrollIntoView;
-    try {
-      render(cardOf({ toolCallId: "never-rendered" }));
-      act(() => {
-        buttonNamed("Show request")?.click();
-      });
-      expect(scrollIntoView).not.toHaveBeenCalled();
-    } finally {
-      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
-    }
   });
 });
 
@@ -373,11 +308,6 @@ describe("a coworker's card", () => {
     // The assistant's own card carries no attribution line.
     render(cardOf());
     expect(host.querySelector("[data-tf-approval-asker]")).toBeNull();
-  });
-
-  it("offers no Show request (the call is the child run's, never in this transcript)", () => {
-    render(coworkerCard({ trustAvailable: true, gated: false }));
-    expect(host.querySelector("[data-tf-approval-show-request]")).toBeNull();
   });
 
   it("offers trust for the TASK where the wire allows it, and posts the token", () => {

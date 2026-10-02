@@ -30,9 +30,9 @@ export async function refreshConversationFromStore(
       store.deps.session,
       active.thread.id,
     );
-    if (ticket <= store._refreshAdoptedThrough) {
-      // A later-issued refresh already adopted fresher truth (the
-      // monotonic-adoption premise at _refreshTicket).
+    if (store._disposed || ticket <= store._refreshAdoptedThrough) {
+      // Released meanwhile, or a later-issued refresh already adopted
+      // fresher truth (the monotonic-adoption premise at _refreshTicket).
       return;
     }
     store._refreshAdoptedThrough = ticket;

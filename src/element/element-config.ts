@@ -15,7 +15,12 @@ import type { AssistantPageProps } from "../components/assistant-page.js";
 import { CompanionMarkImage } from "../components/companion-mark-image.js";
 import type { AssistantSuggestionInput } from "../components/conversation-view.js";
 import type { TeaflaskAssistantProps } from "../components/teaflask-assistant.js";
-import type { TeaflaskAssistantProviderProps } from "../components/teaflask-assistant-provider.js";
+import type {
+  TeaflaskAssistantAnonymousProps,
+  TeaflaskAssistantIdentityProps,
+  TeaflaskAssistantProviderProps,
+} from "../components/teaflask-assistant-provider.js";
+import { namedIdentityOf } from "../core/identity-pair.js";
 import type { ActionsAdapter } from "../contract/actions-adapter.js";
 import {
   isReservedToolViewKey,
@@ -155,7 +160,11 @@ export interface ElementHostProps {
    * property where null says something other than "unset".
    */
   onNavigate?: ((path: string) => void | Promise<void>) | null;
-  getEndUserToken?: TeaflaskAssistantProps["getEndUserToken"] | null;
+  /** The signed-in user's id; set it together with `getEndUserToken` —
+   *  one without the other runs the session anonymous, with a warning.
+   *  An empty string is unset, like an empty attribute. */
+  userId?: string | null;
+  getEndUserToken?: TeaflaskAssistantIdentityProps["getEndUserToken"] | null;
   actionsAdapter?: ActionsAdapter | null;
   onError?: ((error: Error) => void) | null;
   theme?: AssistantTheme | null;
@@ -183,6 +192,7 @@ function _unsetIfCleared<Value>(value: Value | null | undefined) {
 
 export const ELEMENT_HOST_PROP_KEYS = [
   "onNavigate",
+  "userId",
   "getEndUserToken",
   "actionsAdapter",
   "onError",
@@ -358,7 +368,7 @@ export function resolveElementProps(
       hotkey: config.hotkey,
       companionMark: _companionMarkOf(config.companionMarkSrc),
       onNavigate: _resolveNavigate(hostProps.onNavigate),
-      getEndUserToken: _unsetIfCleared(hostProps.getEndUserToken),
+      ..._identityPairOf(hostProps),
       actionsAdapter: _usableActionsAdapter(hostProps.actionsAdapter, warnings),
       onError: _unsetIfCleared(hostProps.onError),
       theme: _unsetIfCleared(hostProps.theme),
@@ -367,6 +377,15 @@ export function resolveElementProps(
     },
     warnings,
   };
+}
+
+// The pair travels whole or not at all, by core/identity-pair's rule. The
+// warning is the element's to raise, after the task settles — two
+// assignments in a row render twice but commit once.
+function _identityPairOf(
+  hostProps: ElementHostProps,
+): TeaflaskAssistantIdentityProps | TeaflaskAssistantAnonymousProps {
+  return namedIdentityOf(hostProps) ?? {};
 }
 
 /** The attribute's image, as the node the provider's `companionMark`
@@ -401,7 +420,7 @@ export function resolvePageElementProps(
       baseUrl: config.baseUrl,
       mode: config.mode,
       onNavigate: _resolveNavigate(hostProps.onNavigate),
-      getEndUserToken: _unsetIfCleared(hostProps.getEndUserToken),
+      ..._identityPairOf(hostProps),
       actionsAdapter: _usableActionsAdapter(hostProps.actionsAdapter, warnings),
       onError: _unsetIfCleared(hostProps.onError),
       theme: _unsetIfCleared(hostProps.theme),

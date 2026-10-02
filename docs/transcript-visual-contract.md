@@ -851,11 +851,17 @@ stay package-owned, the `./transcript-ui` slot enumeration in the
 README); and the redaction floor applies inside a slot exactly as
 outside it (TVC-130's never-contents-or-ids clause, an `any-transcript`
 law). The package's link rule — every link in package-rendered
-transcript markdown opens in a new tab with `rel="noreferrer"`,
+transcript markdown opens in a new tab with `rel="noopener noreferrer"`,
 unconditionally, internal and external alike (`markdown-structure.tsx`)
-— keeps governing the package-rendered prose around and beneath a slot;
-it is a package rule rather than a slot obligation, since a slot's own
-DOM is the host's. `binds` classifies laws; it never weakens one — a law
+— and its image rule — a markdown image never mounts an `<img>`, on any
+scheme; it renders as a label — the alt text, else the URL's file name,
+else "(no description)" — behind a DOM-text "Image:" marker, a link the
+reader may open when the URL is http(s), a span otherwise or inside a
+link, with raw HTML left as literal text (`markdown-structure.tsx`, applied over every component
+map in `memoized-blocks.tsx`; the `image-policy` scenario shows every
+form; `tests/markdown-image-policy.test.tsx` pins them) — keep governing
+the package-rendered prose around and beneath a slot; they are package
+rules rather than slot obligations, since a slot's own DOM is the host's. `binds` classifies laws; it never weakens one — a law
 that should not bind host surfaces is scoped, not softened. And
 re-scoping an existing law is itself a contract change: narrowing
 `binds` from `any-transcript` to `package-binder` shrinks the law's
@@ -921,6 +927,7 @@ settle changes block heights — never screenshot before it lands).
 | `activity-shelf` | the populated shelf (suspension-slot placeholder tenant, a bench sibling specimen, subagent pill) between a live scrollable transcript and the busy composer; the "Parked on subagents" scene (`data-testid="parked-on-subagents"` — pill only, idle composer, empty suspension slot; nothing claims the member); plus an empty shelf between an idle pair (the collapse specimen)                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `suspensions`    | the shipping decision composition: a paused transcript whose rows carry the compact chronology ("Needs input" pills, a settled joined receipt) while the suspension tenant holds the queue — two pending approvals and a pending ask behind the "Decision n of N" pager — above the busy composer; plus the interactive "Approve settles in place" scene (`data-testid="settle-in-place"`) and the pending-decision gap alert posed over a populated paused transcript (`data-testid="pending-decision-gap-scene"`); the first two transcripts sit on a settled earlier exchange so they genuinely overflow their columns (the composition TVC-146 and TVC-190 pose as two overflowing lists and one content-fit — the gap scene's), and the two overflowing lists photograph bottom-anchored — pills, queue, and composer all stay in frame |
 | `captions`       | the model-written caption as the row's label in every state: one caption over running, completed, failed, interrupted, not approved and severed rows — the shimmer or the quiet state word carries the state; not screenshotted                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `image-policy`   | an assistant reply carrying every image form — inline, inside a link, raw HTML with srcset, protocol-relative, alt-less, titled, long-alt — rendered as inert links or labels with no `<img>` mounted; not screenshotted by the suite (the policy's own test pins the DOM)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 The probe pages sit beside the scenarios: `?late-approval-probe` (large
 late-arriving card, the shelf-less inline mode), `?scroll-guards-probe`

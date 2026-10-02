@@ -22,13 +22,19 @@ release. Describe the change you want in an issue instead.
 
 ## How a release reaches npm
 
-1. The version in `package.json` is bumped and the change is written up in
-   `CHANGELOG.md`, in the source tree.
-2. A production release publishes and the mirror sync lands the new tree
-   here.
+1. Each change to the package is written up under `## Unreleased` in
+   `CHANGELOG.md`, in the source tree. Nobody edits the version in
+   `package.json` by hand.
+2. When a production release publishes and the files npm ships have
+   changed since the last published version, the release cuts the next
+   version: a patch, or a minor or major when an Unreleased entry says so.
+   The Unreleased entries become that version's section, and the mirror
+   sync lands the new tree here.
 3. The same sync then pushes an annotated `vX.Y.Z` tag automatically, as
    the bot, whenever this repository does not already hold a tag for the
-   version in `package.json`. No maintainer tags anything by hand.
+   version in `package.json`. No maintainer tags anything by hand. A
+   release that changed only files npm never ships (tests, fixtures,
+   workflows) lands here without a new version.
 4. The tag push starts the publish workflow, which first checks that the
    tag names the version in `package.json`, then runs `npm test`,
    `npm run build` and `npm run check:package`, and finally `npm publish`.

@@ -265,6 +265,45 @@ describe("the shadow mount", () => {
     warn.mockRestore();
   });
 
+  it("the identity pair set in two statements never warns; a pair still half-set when the task ends warns once", async () => {
+    defineElement();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const element = track(elementOf());
+    connect(element);
+
+    // The documented wiring: two assignments, two renders, one commit.
+    await act(async () => {
+      element.userId = "user-a";
+      element.getEndUserToken = () => "end-user-token";
+      await Promise.resolve();
+    });
+    expect(warn).not.toHaveBeenCalledWith(
+      expect.stringContaining("must be set together"),
+    );
+
+    // A templated empty id names nobody: with the vouch still set the
+    // pair is half-set once the task ends, and the session runs anonymous.
+    await act(async () => {
+      element.userId = "";
+      await Promise.resolve();
+    });
+    const pairWarnings = () =>
+      warn.mock.calls.filter(([message]) =>
+        String(message).includes("must be set together"),
+      );
+    expect(pairWarnings()).toHaveLength(1);
+    expect(dockIn(element)).not.toBeNull();
+
+    // Clearing the other half is the same misuse; the ledger says it once.
+    await act(async () => {
+      element.userId = "user-a";
+      element.getEndUserToken = null;
+      await Promise.resolve();
+    });
+    expect(pairWarnings()).toHaveLength(1);
+    warn.mockRestore();
+  });
+
   it("re-renders on property assignment after mount", () => {
     defineElement();
     const element = track(elementOf());

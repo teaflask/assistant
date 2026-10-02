@@ -22,6 +22,8 @@ import {
   type MountableElementConfig,
   type MountablePageElementConfig,
 } from "../src/element/element-config";
+import { identityPairIsHalfSet } from "../src/core/identity-pair";
+import { IDENTITY_PAIR_MATRIX } from "./identity-pair-matrix";
 
 function attributesOf(values: Record<string, string>): ElementAttributeReader {
   return {
@@ -507,5 +509,40 @@ describe("resolvePageElementProps", () => {
     expect(warnings).toHaveLength(2);
     expect(warnings[0]).toContain('toolViews["teaflask.search"]');
     expect(warnings[1]).toContain('toolViews["broken"]');
+  });
+});
+
+describe("the element's identity pair", () => {
+  it.each(IDENTITY_PAIR_MATRIX)(
+    "$name → identified: $identified, half-set: $halfSet",
+    ({ userId, vouch, identified, halfSet }) => {
+      const hostProps = { userId, getEndUserToken: vouch };
+      const widget = resolveElementProps(mountableConfig(), hostProps);
+      const page = resolvePageElementProps(mountablePageConfig(), hostProps);
+      for (const props of [widget.props, page.providerProps]) {
+        expect(props.userId).toBe(identified ? userId : undefined);
+        expect(props.getEndUserToken).toBe(identified ? vouch : undefined);
+      }
+      // The resolvers never warn themselves: the element says it once the
+      // task settles, by the same predicate.
+      expect(widget.warnings).toEqual([]);
+      expect(page.warnings).toEqual([]);
+      expect(identityPairIsHalfSet(hostProps)).toBe(halfSet);
+    },
+  );
+
+  it("a cleared (null) half reads as unset, like the other properties", () => {
+    const cleared = resolveElementProps(mountableConfig(), {
+      userId: "user-a",
+      getEndUserToken: null,
+    });
+    expect(cleared.props.userId).toBeUndefined();
+    expect(cleared.props.getEndUserToken).toBeUndefined();
+    expect(
+      identityPairIsHalfSet({ userId: "user-a", getEndUserToken: null }),
+    ).toBe(true);
+    expect(identityPairIsHalfSet({ userId: null, getEndUserToken: null })).toBe(
+      false,
+    );
   });
 });

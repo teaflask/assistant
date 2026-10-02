@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 // The sign-in-required recovery: a cached anonymous token 403ing on a
 // sign_in_required agent forces ONE re-mint, so a visitor who signed in
 // after the mint recovers immediately instead of at the proactive
@@ -5,7 +7,10 @@
 // sentence instead of looping.
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { TokenSession } from "../src/transport/token-session";
+import {
+  END_USER_ID_MISMATCH,
+  TokenSession,
+} from "../src/transport/token-session";
 
 const SIGN_IN_REQUIRED_BODY = JSON.stringify({
   error: {
@@ -254,6 +259,235 @@ describe("TokenSession on the sign-in-required 403", () => {
 
     expect(response.status).toBe(403);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    session.dispose();
+  });
+});
+
+function mintResponseFor(
+  tier: "anonymous" | "identified",
+  token: string,
+  endUserId: string | null,
+) {
+  return new Response(
+    JSON.stringify({
+      visitor_token: token,
+      expires_in: 900,
+      tier,
+      end_user_id: endUserId,
+    }),
+    { status: 201, headers: { "Content-Type": "application/json" } },
+  );
+}
+
+describe("TokenSession after dispose()", () => {
+  it("a mint landing after dispose sets no token, arms no timer, fires no onMinted", async () => {
+    vi.useFakeTimers();
+    try {
+      let releaseMint: (response: Response) => void = () => undefined;
+      const parkedMint = new Promise<Response>((resolve) => {
+        releaseMint = resolve;
+      });
+      const fetchMock = vi
+        .fn<typeof fetch>()
+        .mockImplementationOnce(() => parkedMint)
+        // The request that waited on the parked mint still goes out.
+        .mockResolvedValueOnce(new Response("{}", { status: 200 }))
+        // The next request after dispose mints afresh rather than
+        // riding the late token.
+        .mockResolvedValueOnce(mintResponse("anonymous", "fresh-token"))
+        .mockResolvedValueOnce(new Response("{}", { status: 200 }));
+      vi.stubGlobal("fetch", fetchMock);
+      const onMinted = vi.fn();
+      const session = new TokenSession({
+        publishableKey: "pk_test_x",
+        baseUrl: "https://api.example.test",
+        onMinted,
+      });
+
+      const late = session.authorizedFetch("https://api.example.test/x");
+      session.dispose();
+      releaseMint(mintResponse("anonymous", "late-token"));
+      await late;
+
+      expect(onMinted).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(0);
+
+      const response = await session.authorizedFetch(
+        "https://api.example.test/y",
+      );
+      expect(response.status).toBe(200);
+      expect(fetchMock).toHaveBeenCalledTimes(4);
+      expect(bearerOf(fetchMock.mock.calls[3][1])).toBe("Bearer fresh-token");
+      expect(onMinted).toHaveBeenCalledTimes(1);
+      session.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("TokenSession disposed during the body read", () => {
+  it("a dispose landing between the response and its JSON writes nothing either", async () => {
+    vi.useFakeTimers();
+    try {
+      let releaseBody: (body: unknown) => void = () => undefined;
+      const parkedBody = new Promise<unknown>((resolve) => {
+        releaseBody = resolve;
+      });
+      // The fetch answers at once; only the body read is parked.
+      const bodyRead = { began: false };
+      const parkedResponse = {
+        ok: true,
+        status: 201,
+        json: () => {
+          bodyRead.began = true;
+          return parkedBody;
+        },
+      } as unknown as Response;
+      const fetchMock = vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(parkedResponse)
+        .mockResolvedValueOnce(new Response("{}", { status: 200 }));
+      vi.stubGlobal("fetch", fetchMock);
+      const onMinted = vi.fn();
+      const session = new TokenSession({
+        publishableKey: "pk_test_x",
+        baseUrl: "https://api.example.test",
+        onMinted,
+      });
+
+      const late = session.authorizedFetch("https://api.example.test/x");
+      // Let the mint reach the body read before disposing.
+      for (let turns = 0; !bodyRead.began && turns < 20; turns += 1) {
+        await Promise.resolve();
+      }
+      expect(bodyRead.began).toBe(true);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      session.dispose();
+      releaseBody({
+        visitor_token: "late-token",
+        expires_in: 900,
+        tier: "anonymous",
+      });
+      await late;
+
+      expect(onMinted).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(0);
+      session.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("TokenSession and the host's userId", () => {
+  const config = {
+    publishableKey: "pk_test_x",
+    baseUrl: "https://api.example.test",
+    getEndUserToken: () => "customer-jwt",
+    expectedEndUserId: "user-a",
+  };
+
+  it("re-mints once when the identified mint names another user, then serves the agreeing token", async () => {
+    const onMinted = vi.fn();
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(mintResponseFor("identified", "wrong", "user-b"))
+      .mockResolvedValueOnce(mintResponseFor("identified", "right", "user-a"))
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const session = new TokenSession({ ...config, onMinted });
+
+    await session.authorizedFetch("https://api.example.test/x");
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(bearerOf(fetchMock.mock.calls[2][1])).toBe("Bearer right");
+    expect(onMinted).toHaveBeenCalledTimes(1);
+    expect(onMinted.mock.calls[0][0]).toMatchObject({ end_user_id: "user-a" });
+    session.dispose();
+  });
+
+  it("fails closed after the retry still disagrees: no token, a setup-shaped onMintFailed, no onMinted", async () => {
+    const onMinted = vi.fn();
+    const onMintFailed = vi.fn();
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(mintResponseFor("identified", "wrong", "user-b"))
+      .mockResolvedValueOnce(mintResponseFor("identified", "wrong2", "user-b"));
+    vi.stubGlobal("fetch", fetchMock);
+    const session = new TokenSession({ ...config, onMinted, onMintFailed });
+
+    await expect(
+      session.authorizedFetch("https://api.example.test/x"),
+    ).rejects.toMatchObject({
+      code: END_USER_ID_MISMATCH,
+      message:
+        "The signed-in user this page names is not the user the server verified. Keep userId in step with the user your backend signs the end-user token for.",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(onMinted).not.toHaveBeenCalled();
+    expect(onMintFailed).toHaveBeenCalledTimes(1);
+    expect(onMintFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ code: END_USER_ID_MISMATCH }),
+    );
+    session.dispose();
+  });
+
+  it("a proactive re-mint whose retry still disagrees leaves no token in service", async () => {
+    vi.useFakeTimers();
+    try {
+      const onMintFailed = vi.fn();
+      const fetchMock = vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(mintResponseFor("identified", "tok-a", "user-a"))
+        .mockResolvedValueOnce(new Response("{}", { status: 200 }))
+        // The proactive re-mint at 80% of the TTL: the host's vouch now
+        // belongs to someone else, twice.
+        .mockResolvedValueOnce(mintResponseFor("identified", "tok-b", "user-b"))
+        .mockResolvedValueOnce(
+          mintResponseFor("identified", "tok-b2", "user-b"),
+        )
+        // The next request mints afresh instead of riding tok-a.
+        .mockResolvedValueOnce(
+          mintResponseFor("identified", "tok-a2", "user-a"),
+        )
+        .mockResolvedValueOnce(new Response("{}", { status: 200 }));
+      vi.stubGlobal("fetch", fetchMock);
+      const session = new TokenSession({ ...config, onMintFailed });
+
+      await session.authorizedFetch("https://api.example.test/x");
+      expect(bearerOf(fetchMock.mock.calls[1][1])).toBe("Bearer tok-a");
+
+      await vi.advanceTimersByTimeAsync(900 * 0.8 * 1000);
+      expect(fetchMock).toHaveBeenCalledTimes(4);
+      expect(onMintFailed).toHaveBeenCalledWith(
+        expect.objectContaining({ code: END_USER_ID_MISMATCH }),
+      );
+      expect(vi.getTimerCount()).toBe(0);
+
+      await session.authorizedFetch("https://api.example.test/y");
+      expect(fetchMock).toHaveBeenCalledTimes(6);
+      expect(bearerOf(fetchMock.mock.calls[5][1])).toBe("Bearer tok-a2");
+      session.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("trusts a mint without end_user_id (an older server) and an anonymous mint alike", async () => {
+    const onMinted = vi.fn();
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(mintResponse("identified", "legacy"))
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const session = new TokenSession({ ...config, onMinted });
+
+    await session.authorizedFetch("https://api.example.test/x");
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(onMinted).toHaveBeenCalledTimes(1);
     session.dispose();
   });
 });

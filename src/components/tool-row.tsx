@@ -92,10 +92,9 @@ export function ToolRow({
     <Disclosure
       variant="bare"
       open={heldRowOpen || undefined}
-      // The row's call identity, on the disclosure root: the approval
-      // banner's Show-request affordance resolves this hook to scroll
-      // the pending call's row into view (approval-card.tsx). Stamped
-      // only when the id exists — fixture rows without ids stay bare.
+      // The row's call identity, on the disclosure root, so hosts and
+      // tests can find the row that carries a given call. Stamped only
+      // when the id exists — fixture rows without ids stay bare.
       {...(view.toolCallId !== undefined && view.toolCallId !== ""
         ? { rootDataAttributes: { "data-tf-tool-call-id": view.toolCallId } }
         : {})}

@@ -16,6 +16,7 @@ import { AssistantCompanion } from "../src/components/assistant-companion";
 import { AssistantPage } from "../src/components/assistant-page";
 import { TeaflaskAssistantProvider } from "../src/components/teaflask-assistant-provider";
 import { getAssistantThread } from "../src/transport/serving-api";
+import { identityPropsOf } from "./identity-props";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -120,9 +121,7 @@ function renderCompanion(options: { identified: boolean }): void {
     root.render(
       <TeaflaskAssistantProvider
         publishableKey={`pk_test_history_${String(testSerial)}`}
-        getEndUserToken={
-          options.identified ? () => "end-user-token" : undefined
-        }
+        {...identityPropsOf(options.identified)}
       >
         <AssistantCompanion />
       </TeaflaskAssistantProvider>,
@@ -135,9 +134,7 @@ function renderPage(options: { identified: boolean }): void {
     root.render(
       <TeaflaskAssistantProvider
         publishableKey={`pk_test_page_history_${String(testSerial)}`}
-        getEndUserToken={
-          options.identified ? () => "end-user-token" : undefined
-        }
+        {...identityPropsOf(options.identified)}
       >
         <AssistantPage />
       </TeaflaskAssistantProvider>,

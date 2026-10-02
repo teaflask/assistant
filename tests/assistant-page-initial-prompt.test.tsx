@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AssistantPage } from "../src/components/assistant-page";
 import { TeaflaskAssistantProvider } from "../src/components/teaflask-assistant-provider";
 import { sendAssistantMessage } from "../src/transport/serving-api";
+import { identityPropsOf } from "./identity-props";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -95,7 +96,7 @@ function renderPage(initialPrompt?: string, identity = true): void {
     root.render(
       <TeaflaskAssistantProvider
         publishableKey={`pk_test_initial_${String(testSerial)}`}
-        {...(identity ? { getEndUserToken: () => "end-user-token" } : {})}
+        {...identityPropsOf(identity)}
       >
         <AssistantPage
           {...(initialPrompt === undefined ? {} : { initialPrompt })}

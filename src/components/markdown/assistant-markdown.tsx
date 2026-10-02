@@ -5,7 +5,7 @@
 // headers on a muted wash with rounded outer corners, code blocks
 // wearing a language header. Typography lives in styles.css under
 // [data-tf-markdown]; this map carries only structure (the code
-// block and the link policy).
+// block and the link policy; the image policy rides MarkdownBlocks).
 
 import type { Components } from "react-markdown";
 

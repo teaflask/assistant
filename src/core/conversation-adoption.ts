@@ -13,6 +13,8 @@ import type {
 import {
   clearStoredThread,
   readStoredThread,
+  readStoredThreadFor,
+  type StoredThread,
   writeStoredThread,
 } from "../persistence/stored-thread.js";
 import {
@@ -53,8 +55,21 @@ const HISTORY_WINDOW = 200;
 export function resumeStoredThreadFromStore(
   store: AssistantConversationStore,
 ): void {
-  const stored = readStoredThread(store.deps.publishableKey);
+  const stored = readStoredThreadFor(
+    store.deps.publishableKey,
+    store.deps.userId,
+  );
   if (stored === null) {
+    // Another user's entry is dropped the moment this user's session
+    // sees it. An anonymous session only declines it: the owner may be
+    // a moment from naming themselves (the host's userId still
+    // resolving), and the scoped read already keeps it from anyone else.
+    if (
+      store.deps.userId !== undefined &&
+      readStoredThread(store.deps.publishableKey) !== null
+    ) {
+      clearStoredThread(store.deps.publishableKey);
+    }
     // Nothing stored but a conversation on screen: another surface (or
     // the host's resetAssistant) started over while this one wasn't
     // looking. Resuming means following it to the empty state, not
@@ -113,17 +128,31 @@ export function openThreadFromStore(
   store._pendingEcho = null;
   store._threadOpening = true;
   publishStore(store);
+  // The same staleness ticket the resume uses: a later open, abandon,
+  // send, or dispose supersedes this answer, however late it lands.
+  const request = store._resumeRequest;
   getAssistantThread(store.deps.session, thread.id)
     .then((detail) => {
+      if (store._resumeRequest !== request) {
+        return;
+      }
       _adoptThreadDetail(store, detail);
-      writeStoredThread(store.deps.publishableKey, {
-        threadId: detail.thread.id,
-        identified: store._tier === "identified",
-      });
+      writeStoredThread(
+        store.deps.publishableKey,
+        _storedThreadOf(store, detail.thread.id),
+      );
     })
     .catch((error: unknown) => {
+      if (store._resumeRequest !== request) {
+        return;
+      }
       store._threadOpening = false;
       store._sendError = userSentenceFor(error);
+      if (_threadIsGone(error)) {
+        // The history offered a conversation this visitor can no longer
+        // open: the list must not keep pointing at it.
+        store._threads = store._threads.filter((t) => t.id !== thread.id);
+      }
       publishStore(store);
       if (error instanceof Error) {
         store.deps.reportError(error);
@@ -350,6 +379,11 @@ export function enterConversationFromSend(
   turn: ServingAssistantTurn,
   sentPick: ComposerModelPick | null,
 ): void {
+  // A send outliving the store's release (the user changed mid-flight)
+  // belongs to nobody on this page: it must not write the shared pointer.
+  if (store._disposed) {
+    return;
+  }
   invalidateInFlightResume(store);
   const active = store._active;
   const continuing = active !== null && active.thread.id === thread.id;
@@ -411,10 +445,10 @@ export function enterConversationFromSend(
     ...store._composerInput.get(),
     scope: `t:${thread.id}`,
   });
-  writeStoredThread(store.deps.publishableKey, {
-    threadId: thread.id,
-    identified: store._tier === "identified",
-  });
+  writeStoredThread(
+    store.deps.publishableKey,
+    _storedThreadOf(store, thread.id),
+  );
   store._pendingEcho = {
     messageId: userMessageIdFor(turn.id),
     text: turn.user_message,
@@ -459,6 +493,10 @@ export function invalidateInFlightResume(
   store: AssistantConversationStore,
 ): void {
   store._resumeRequest += 1;
+  // The answer that would have ended the opening skeleton is discarded
+  // with the intent, so the skeleton ends here — a landed send, say,
+  // must not stream under it.
+  store._threadOpening = false;
   // Every caller is a new-intent moment (open, abandon, a landed send,
   // dispose), so a >window adoption's in-flight backfill must die with
   // the old intent too — without this, an abandoned thread's drain
@@ -471,13 +509,18 @@ export function invalidateInFlightResume(
 export async function refreshThreads(
   store: AssistantConversationStore,
 ): Promise<void> {
-  if (store._tier !== "identified") {
+  if (!_historyRefreshable(store)) {
     return;
   }
   try {
-    store._threads = await listAssistantThreads(store.deps.session, {
+    const threads = await listAssistantThreads(store.deps.session, {
       limit: HISTORY_WINDOW,
     });
+    // A list answering a store that was released meanwhile stays out.
+    if (store._disposed) {
+      return;
+    }
+    store._threads = threads;
     publishStore(store);
   } catch {
     // The list is decoration; the conversation itself still works.
@@ -503,12 +546,29 @@ export function loadHistoryOnceExpected(
     });
 }
 
+// A function, not an inline test: the compiler would otherwise carry the
+// pre-await `_disposed` verdict across the await and call the re-check dead.
+function _historyRefreshable(store: AssistantConversationStore): boolean {
+  return store._tier === "identified" && !store._disposed;
+}
+
 export function historyExpected(store: AssistantConversationStore): boolean {
-  return store.deps.identityProvided || store._tier === "identified";
+  return store.deps.userId !== undefined || store._tier === "identified";
 }
 
 function _threadIsGone(error: unknown): boolean {
   return error instanceof ServingApiError && error.status === 404;
+}
+
+// An identified entry is written for this user; an anonymous one for the
+// browser, awaiting the sign-in claim.
+function _storedThreadOf(
+  store: AssistantConversationStore,
+  threadId: string,
+): StoredThread {
+  return store._tier === "identified"
+    ? { threadId, identified: true, userId: store.deps.userId }
+    : { threadId, identified: false };
 }
 
 // A turn a stop could still be waiting on: running, or paused awaiting

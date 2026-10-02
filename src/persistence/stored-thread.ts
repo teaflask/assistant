@@ -2,10 +2,12 @@
 // publishable key (pk_test and pk_live on one origin stay apart; per-org
 // is impossible — the browser only knows the pk). `identified: false`
 // marks a thread still to be offered for adoption on the sign-in re-mint.
+// An identified entry belongs to its `userId`: nobody else resumes it.
 
 export interface StoredThread {
   threadId: string;
   identified: boolean;
+  userId?: string;
 }
 
 export function readStoredThread(publishableKey: string): StoredThread | null {
@@ -14,6 +16,20 @@ export function readStoredThread(publishableKey: string): StoredThread | null {
     return null;
   }
   return _decodeStoredThread(raw);
+}
+
+/** The entry as `userId` may resume it: an anonymous entry belongs to
+ *  whoever holds the browser, an identified one only to the user it was
+ *  written for. An identified entry without a user is nobody's. */
+export function readStoredThreadFor(
+  publishableKey: string,
+  userId: string | undefined,
+): StoredThread | null {
+  const stored = readStoredThread(publishableKey);
+  if (!stored?.identified) {
+    return stored;
+  }
+  return userId !== undefined && stored.userId === userId ? stored : null;
 }
 
 export function writeStoredThread(
@@ -80,6 +96,9 @@ function _isStoredThread(value: unknown): value is StoredThread {
     "threadId" in value &&
     typeof value.threadId === "string" &&
     "identified" in value &&
-    typeof value.identified === "boolean"
+    typeof value.identified === "boolean" &&
+    (!("userId" in value) ||
+      value.userId === undefined ||
+      typeof value.userId === "string")
   );
 }

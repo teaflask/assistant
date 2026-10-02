@@ -33,6 +33,13 @@ import {
 } from "../core/assistant-session-registry.js";
 import type { ConversationGate } from "../core/connect-gate.js";
 import { hostFillDeclines } from "../core/host-fill.js";
+import {
+  IDENTITY_PAIR_WARNING,
+  type IdentityPairInput,
+  identityPairIsHalfSet,
+  type NamedIdentity,
+  namedIdentityOf,
+} from "../core/identity-pair.js";
 import type { ReadonlyCell } from "../core/observable-cell.js";
 import type {
   AssistantConversationStore,
@@ -56,12 +63,36 @@ import { ConversationSurfacesProvider } from "./conversation-surfaces-provider.j
 import type { AssistantSuggestionInput } from "./conversation-view.js";
 import { useCell } from "./use-store-cell.js";
 
-export interface TeaflaskAssistantProviderProps {
-  publishableKey: string;
-  baseUrl?: string;
+/**
+ * A signed-in host names its user and vouches for them, always together:
+ * the assistant belongs to `userId`, and when it changes — including to
+ * undefined on sign-out — everything from the previous user (the history
+ * list, the open conversation and its transcript, the visitor token,
+ * pending approvals and elicitations, the saved last conversation) is
+ * dropped at once and a fresh session starts.
+ */
+export interface TeaflaskAssistantIdentityProps {
+  /** Your stable id for the signed-in user — the same id your backend
+   *  signs into the end-user token. */
+  userId: string;
   // How a signed-in host vouches for its user: an async callback (never a
   // static token) because the short-lived visitor token forces re-mints.
-  getEndUserToken?: () => string | null | Promise<string | null>;
+  getEndUserToken: () => string | null | Promise<string | null>;
+}
+
+/** An anonymous host wires neither half of the identity pair. */
+export interface TeaflaskAssistantAnonymousProps {
+  userId?: undefined;
+  getEndUserToken?: undefined;
+}
+
+export type TeaflaskAssistantProviderProps =
+  TeaflaskAssistantProviderBaseProps &
+    (TeaflaskAssistantIdentityProps | TeaflaskAssistantAnonymousProps);
+
+export interface TeaflaskAssistantProviderBaseProps {
+  publishableKey: string;
+  baseUrl?: string;
   /**
    * How this page performs the actions the org's catalog grants (the
    * http_intent execution request) — see the ActionsAdapter contract.
@@ -235,6 +266,7 @@ export function useOptionalAssistantSession(): AssistantSessionValue | null {
 export function TeaflaskAssistantProvider({
   publishableKey,
   baseUrl,
+  userId,
   getEndUserToken,
   actionsAdapter,
   onNavigate,
@@ -247,14 +279,20 @@ export function TeaflaskAssistantProvider({
   toolViews,
   children,
 }: TeaflaskAssistantProviderProps) {
+  const identity = useNamedIdentity({ userId, getEndUserToken });
   const host = useHostCallbackRefs({
-    getEndUserToken,
+    getEndUserToken: identity?.getEndUserToken,
     actionsAdapter,
     onNavigate,
     onError,
     onTelemetry,
   });
-  const value = useSessionRegistration({ publishableKey, baseUrl, host });
+  const value = useSessionRegistration({
+    publishableKey,
+    baseUrl,
+    userId: identity?.userId,
+    host,
+  });
   const appearance = useAppearanceValue({
     theme,
     mode,
@@ -273,6 +311,24 @@ export function TeaflaskAssistantProvider({
       </AssistantAppearanceContext.Provider>
     </AssistantSessionContext.Provider>
   );
+}
+
+// Said once per page, not once per render — the hotkey warning's manner.
+let warnedHalfSetPair = false;
+
+// The pair as core/identity-pair judges it: whole, or anonymous. A plain-JS
+// host (the props union binds only TypeScript) can pass one half, or an
+// empty id; the element resolves its own pair before the provider sees
+// it, so between the two paths the warning is said exactly once.
+function useNamedIdentity(input: IdentityPairInput): NamedIdentity | null {
+  const halfSet = identityPairIsHalfSet(input);
+  useEffect(() => {
+    if (halfSet && !warnedHalfSetPair) {
+      warnedHalfSetPair = true;
+      console.warn(`[teaflask-assistant] ${IDENTITY_PAIR_WARNING}`);
+    }
+  }, [halfSet]);
+  return namedIdentityOf(input);
 }
 
 interface HostCallbacks {
@@ -377,10 +433,12 @@ function useHostCallbackRefs({
 function useSessionRegistration({
   publishableKey,
   baseUrl,
+  userId,
   host,
 }: {
   publishableKey: string;
   baseUrl: string | undefined;
+  userId: string | undefined;
   host: HostCallbacks;
 }): AssistantSessionValue {
   const {
@@ -399,15 +457,13 @@ function useSessionRegistration({
   // The registry resolves the session's identity inputs to ONE shared
   // TokenSession + store pair — same-identity providers, even in other
   // React roots (two custom elements on one host page), converse through
-  // the same store. Render-safe: entryFor only constructs, never boots.
+  // the same store. A changed userId resolves a different entry, and the
+  // old one is swept when its last provider lets go. Render-safe:
+  // entryFor only constructs, never boots.
   const entry = useMemo(
     () =>
-      assistantSessionRegistry.entryFor({
-        publishableKey,
-        baseUrl,
-        identityProvided,
-      }),
-    [publishableKey, baseUrl, identityProvided],
+      assistantSessionRegistry.entryFor({ publishableKey, baseUrl, userId }),
+    [publishableKey, baseUrl, userId],
   );
   const session = entry.session;
   const store = entry.store;

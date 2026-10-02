@@ -30,9 +30,8 @@ interface DisclosureProps {
   summaryClassName?: string;
   bodyClassName?: string;
   /** data-* identity hooks spread onto the <details> root (the tool
-   *  row's data-tf-tool-call-id, which the approval banner's
-   *  Show-request affordance resolves). Undefined for every other
-   *  consumer — zero DOM change where unused. */
+   *  row's data-tf-tool-call-id). Undefined for every other consumer —
+   *  zero DOM change where unused. */
   rootDataAttributes?: Record<`data-${string}`, string>;
 }
 

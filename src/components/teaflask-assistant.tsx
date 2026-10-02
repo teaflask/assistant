@@ -51,7 +51,7 @@ export interface TeaflaskAssistantHandle {
   openPalette: () => void;
 }
 
-export interface TeaflaskAssistantProps extends TeaflaskAssistantProviderProps {
+export interface TeaflaskAssistantRootProps {
   /**
    * The palette chord, "mod+k" by default (mod = ⌘ or Ctrl). Rebind with
    * the same grammar ("mod+j", "ctrl+shift+p") when your app already
@@ -64,6 +64,10 @@ export interface TeaflaskAssistantProps extends TeaflaskAssistantProviderProps {
   /** The viewport corner the companion (and its drawer) anchor to. */
   corner?: AssistantCompanionProps["corner"];
 }
+
+// An intersection, not `extends`: the provider props are a union (the identity pair).
+export type TeaflaskAssistantProps = TeaflaskAssistantProviderProps &
+  TeaflaskAssistantRootProps;
 
 // forwardRef rather than ref-as-prop: the peer range admits React 18.3,
 // where a function component receives no ref through props. The ref

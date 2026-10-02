@@ -1,9 +1,11 @@
 # @teaflask/assistant changelog
 
-Entries are written at bump time, while the reasoning is fresh, and
+Entries are written with the change, under `## Unreleased`, and
 describe the public surface — exports, props, attributes, theme tokens,
 host-visible behaviour and the laws that pin it — not the work that
-produced them.
+produced them. A release that changes the package turns the Unreleased
+entries into the next version's section: a patch, unless an entry carries
+`<!-- bump: minor -->` or `<!-- bump: major -->`.
 
 **Versioning policy.** While the package is 0.x, the public surface
 churns freely: exports, props, and types may be renamed or removed
@@ -11,6 +13,106 @@ between 0.x versions, with each change recorded here. At 1.0 the
 additive-only freeze switches on: from then the package's public surface
 follows the same rule the serving contract already applies to the wire —
 changes are additive only; nothing is renamed, removed, or made stricter.
+
+## 0.4.0 — 2026-10-02
+
+The assistant now knows whose it is.
+
+### `userId` pairs with `getEndUserToken` (breaking)
+
+`<TeaflaskAssistantProvider/>`, `<TeaflaskAssistant/>`, the headless
+entry's provider, and the custom elements' JS properties take a new
+`userId`: your stable id for the signed-in user, the same id your backend
+signs into the end-user token. The props type requires `userId` and
+`getEndUserToken` together or not at all (`TeaflaskAssistantIdentityProps`
+/ `TeaflaskAssistantAnonymousProps`, both exported); a signed-in host that
+passed `getEndUserToken` alone no longer compiles until it adds `userId`.
+One rule for every entry point: the session is identified only when a
+non-empty `userId` and `getEndUserToken` are both present; a half-set
+pair, or an empty id, runs anonymous and warns once per page (on the
+elements and in plain-JS React hosts alike). `TeaflaskAssistantProps`
+and `TeaflaskAssistantProviderProps` are now type aliases (an
+intersection with the pair), with `TeaflaskAssistantRootProps` and
+`TeaflaskAssistantProviderBaseProps` exported for hosts that extended
+them.
+
+**Security note.** Before this change the package never learned who
+the end user was, so a tab that stayed mounted while the account
+changed in another tab kept the previous account's history list, open
+conversation, visitor token and saved last conversation on screen until
+a reload (the server refused to open them, but their titles were
+visible). The session is now keyed by `userId`: when it changes —
+including to `undefined` on sign-out — everything from the previous user
+is dropped at once and a fresh session starts. Hosts should keep
+`userId` current from an auth-state listener.
+
+### the saved conversation belongs to its user
+
+The stored "last conversation" pointer records the `userId` it was
+written for; another user never resumes it, and an identified pointer
+written before this change is resumed by nobody. An anonymous pointer
+stays claimable on sign-in, as before. `resetAssistant()` clears the
+same entry it always did.
+
+### a mint that names another user is refused
+
+The visitor-token mint response now carries `end_user_id`
+(`MintVisitorTokenResponse`, additive). An identified mint whose
+`end_user_id` differs from `userId` is re-minted once with a fresh vouch;
+a second disagreement surfaces as a setup error through the existing
+setup-error state with the code `END_USER_ID_MISMATCH` and the sentence
+"The signed-in user this page names is not the user the server verified.
+Keep userId in step with the user your backend signs the end-user token
+for.", and no history or conversation data is shown. A server that sends
+no `end_user_id` skips the check.
+
+### a disposed session writes nothing
+
+A token mint, a history refresh, or a conversation open that answers
+after its session was released no longer sets a token, re-arms the
+re-mint timer, fires `onMinted`, or adopts a transcript.
+
+### a conversation that cannot be opened
+
+The not-found copy is now "That conversation isn't available." (it may
+be another user's, not gone), and a history entry that answers 404 when
+picked leaves the history list.
+
+### the approval banner has no Show request
+
+The approval banner's "Show request" button and its
+`data-tf-approval-show-request` hook are removed. A pending decision
+already holds its call's transcript row open, so the request is on screen
+without it, and on hosts whose rows are not native `<details>` the button
+did nothing. The banner is now the title, the tool label, the consent
+sentence and the decision controls; at the narrow measure the title no
+longer wraps and the tool label no longer truncates. Rows keep their
+`data-tf-tool-call-id` hook.
+
+### images in a reply never load
+
+A markdown image in assistant prose — inline, reference-style, inside a
+link, in a list or table cell — no longer mounts an `<img>`, whatever
+its URL's scheme. It renders as a label — the alt text, else the URL's
+file name, else "(no description)" — carried on a `data-tf-markdown-image`
+element: a link the reader may open in a new tab when the URL is http(s),
+a plain span otherwise or when the image sits inside a link. The element
+holds two child spans: `data-tf-markdown-image-marker`, the DOM text
+"Image:" followed by a no-break space (it is real text, so it appears in
+`textContent`, in copied text and in the accessible name, and a host
+cannot hide it from the sheet), and `data-tf-markdown-image-label`, the
+label, which alone carries the link underline. Raw HTML in a reply stays
+the literal text it always was. The reason is exfiltration: an image is
+a fetch the reader never asked for, and a reply steered by a hostile page
+could aim it at any host. The `[data-tf-markdown] img` style rule is gone
+with the element. This applies to every surface the package renders — the
+widget, the page element, the headless transcript, and the `./markdown`
+entry's `AssistantMarkdown` and `PacedAssistantMarkdown`.
+
+### links carry rel="noopener noreferrer"
+
+Links in assistant prose now send `rel="noopener noreferrer"` (was
+`noreferrer` alone); they still open in a new tab.
 
 ## 0.3.0 — 2026-09-30
 

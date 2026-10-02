@@ -18,8 +18,11 @@
 //     masks a page that wired an adapter, and a released provider hands
 //     over automatically on the next scan;
 //   - end-user token: the first identity-wired registrant, scanned at
-//     each mint (same identity key means same signed-in user, so any
-//     resolver is correct; order makes it deterministic);
+//     each mint. The key carries the host's userId, so one key IS one
+//     signed-in user and any registrant's resolver is correct (order
+//     makes it deterministic). A different user is a different entry;
+//     the old entry's sweep drops its store, token, and cells wholesale,
+//     so nothing of the previous user survives the switch.
 //   - reportError: fanned out to every registrant — observability, not
 //     capability; a duplicate report is harmless, a dropped one is a hole.
 
@@ -40,7 +43,10 @@ import {
   listSubscriptions,
 } from "../transport/serving-api.js";
 import type { ServingApiError } from "../transport/serving-error.js";
-import { TokenSession } from "../transport/token-session.js";
+import {
+  END_USER_ID_MISMATCH,
+  TokenSession,
+} from "../transport/token-session.js";
 import {
   type ConversationGate,
   NO_GATE,
@@ -52,17 +58,19 @@ import {
   AssistantConversationStore,
   type HostCapabilities,
 } from "./conversation-store.js";
+import { namedUserIdOf } from "./identity-pair.js";
 import { ObservableCell, type ReadonlyCell } from "./observable-cell.js";
 
 export const DEFAULT_BASE_URL = "https://api.teaflask.com";
 
 /** The session's identity inputs — and nothing else. The token itself is
  *  mutable session state (re-mints overwrite it in place), so identity is
- *  whether the host wired a resolver, never the token's value. */
+ *  the user the host claims (undefined for an anonymous host), never the
+ *  token's value. */
 export interface AssistantSessionSpec {
   publishableKey: string;
   baseUrl?: string;
-  identityProvided: boolean;
+  userId?: string;
 }
 
 /** One provider's wiring, registered for the lifetime of its retain. */
@@ -301,12 +309,15 @@ class SessionEntry implements AssistantSessionEntry {
     this.subscriptions = this._subscriptionsCell;
     this.connectOpenRequested = this._connectOpenRequestedCell;
     const publishableKey = spec.publishableKey;
+    const userId = spec.userId;
+    const identityProvided = userId !== undefined;
     this.session = new TokenSession({
       publishableKey,
       baseUrl: _withoutTrailingSlash(spec.baseUrl ?? DEFAULT_BASE_URL),
-      getEndUserToken: spec.identityProvided
+      getEndUserToken: identityProvided
         ? () => this._resolveEndUserToken()
         : undefined,
+      expectedEndUserId: userId,
       // Claim-at-mint: the stored anonymous thread rides the sign-in
       // re-mint, read fresh each time (claim loss is silent by contract).
       claimThreadId: () => {
@@ -318,7 +329,7 @@ class SessionEntry implements AssistantSessionEntry {
         this._setupErrorCell.set(null);
         this._tierCell.set(minted.tier);
         if (minted.tier === "identified") {
-          _markStoredThreadIdentified(publishableKey);
+          _markStoredThreadIdentified(publishableKey, userId);
         }
         // The mint's verdict flows straight to the store; identification
         // can arrive mid-session and flips the history expectation.
@@ -343,7 +354,7 @@ class SessionEntry implements AssistantSessionEntry {
     this.store = new AssistantConversationStore({
       session: this.session,
       publishableKey,
-      identityProvided: spec.identityProvided,
+      userId,
       hostCapabilitiesOf: () => this._firstCapableRegistrantCapabilities(),
       reportError: (error) => {
         this._reportToEveryRegistrant(error);
@@ -463,7 +474,8 @@ export class AssistantSessionRegistry {
    * (no network, no timers, no listeners), so a discarded render leaves
    * only an inert map entry that the next same-identity resolve reuses.
    */
-  entryFor(spec: AssistantSessionSpec): AssistantSessionEntry {
+  entryFor(requested: AssistantSessionSpec): AssistantSessionEntry {
+    const spec = _withNamedUser(requested);
     const key = _identityKeyOf(spec);
     const existing = this.entries.get(key);
     if (existing !== undefined) {
@@ -547,11 +559,20 @@ export const assistantSessionRegistry = new AssistantSessionRegistry();
 // where waiting forever would hang the request rather than answer it.
 const FIRST_RETAIN_WAIT_MS = 2_000;
 
+// The userId half of core/identity-pair's rule at the spec boundary (the
+// vouch half is the provider's, applied before the spec is built): an
+// empty id names nobody and runs anonymous.
+function _withNamedUser(spec: AssistantSessionSpec): AssistantSessionSpec {
+  return { ...spec, userId: namedUserIdOf(spec.userId) };
+}
+
 function _identityKeyOf(spec: AssistantSessionSpec): string {
+  const userId = spec.userId;
   return [
     spec.publishableKey,
     _withoutTrailingSlash(spec.baseUrl ?? DEFAULT_BASE_URL),
-    spec.identityProvided ? "identified" : "anonymous",
+    userId === undefined ? "anonymous" : "identified",
+    userId ?? "",
   ].join("\u0000");
 }
 
@@ -561,17 +582,21 @@ function _isSetupFailure(error: ServingApiError): boolean {
   return (
     error.code === "PUBLISHABLE_KEY_INVALID" ||
     error.code === "ORIGIN_NOT_ALLOWED" ||
-    error.code === "END_USER_TOKEN_INVALID"
+    error.code === "END_USER_TOKEN_INVALID" ||
+    error.code === END_USER_ID_MISMATCH
   );
 }
 
 // The mint 201'd with the claim on board: the stored thread is this
-// identity's now (or the claim silently lost and reads will say so) —
+// user's now (or the claim silently lost and reads will say so) —
 // either way it must not be offered again.
-function _markStoredThreadIdentified(publishableKey: string): void {
+function _markStoredThreadIdentified(
+  publishableKey: string,
+  userId: string | undefined,
+): void {
   const stored = readStoredThread(publishableKey);
   if (stored !== null && !stored.identified) {
-    writeStoredThread(publishableKey, { ...stored, identified: true });
+    writeStoredThread(publishableKey, { ...stored, identified: true, userId });
   }
 }
 

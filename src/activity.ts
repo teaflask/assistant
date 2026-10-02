@@ -8,6 +8,9 @@
 
 export {
   TeaflaskAssistantProvider,
+  type TeaflaskAssistantAnonymousProps,
+  type TeaflaskAssistantIdentityProps,
+  type TeaflaskAssistantProviderBaseProps,
   type TeaflaskAssistantProviderProps,
 } from "./components/teaflask-assistant-provider.js";
 export { useAssistantActivity } from "./components/use-assistant-activity.js";

@@ -12,6 +12,9 @@
 
 export {
   TeaflaskAssistantProvider,
+  type TeaflaskAssistantAnonymousProps,
+  type TeaflaskAssistantIdentityProps,
+  type TeaflaskAssistantProviderBaseProps,
   type TeaflaskAssistantProviderProps,
 } from "./components/teaflask-assistant-provider.js";
 // The provider props' own field types (the nameability law: tests/headless-

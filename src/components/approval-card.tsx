@@ -71,7 +71,7 @@ function approvalSettledNoteOf(
  * from the durable decision arm that core/tool-decision-anchors.ts folds
  * out of the event history, so the arguments are on screen
  * (replay-identically, reload included) without this banner carrying
- * them. The "Show request" affordance below scrolls to that row.
+ * them.
  *
  * Moving the arguments off this surface weakens no enforcement, because
  * the re-ask rule — "ask again iff the card would render differently" —
@@ -96,7 +96,6 @@ function approvalSettledNoteOf(
  */
 export function ApprovalCard({ card }: { card: ApprovalCardModel }) {
   const { submitDecision } = useContext(ApprovalsContext);
-  const rootRef = useRef<HTMLDivElement | null>(null);
   const [denying, setDenying] = useState(false);
   const [feedback, setFeedback] = useState("");
   const submittedForStatusRef = useRef<ApprovalCardModel["status"] | null>(
@@ -121,18 +120,12 @@ export function ApprovalCard({ card }: { card: ApprovalCardModel }) {
 
   return (
     <div
-      ref={rootRef}
       data-tf-approval-card=""
       className="tf:my-2 tf:rounded-2xl tf:border tf:border-tf-border tf:bg-tf-card tf:p-4"
       role="group"
       aria-label="Approval request"
     >
-      <CardHeader
-        card={card}
-        onShowRequest={() => {
-          _showRequest(rootRef.current, card.toolCallId);
-        }}
-      />
+      <CardHeader card={card} />
       <p
         data-tf-approval-prompt=""
         className="tf:mt-3 tf:m-0 tf:text-tf-label tf:leading-relaxed tf:text-tf-muted-foreground"
@@ -176,66 +169,33 @@ export function ApprovalCard({ card }: { card: ApprovalCardModel }) {
   );
 }
 
-function CardHeader({
-  card,
-  onShowRequest,
-}: {
-  card: ApprovalCardModel;
-  onShowRequest: () => void;
-}) {
+function CardHeader({ card }: { card: ApprovalCardModel }) {
   return (
-    <div className="tf:flex tf:min-w-0 tf:items-start tf:justify-between tf:gap-3">
-      <div className="tf:min-w-0">
+    <div className="tf:min-w-0">
+      <p
+        data-tf-approval-title=""
+        className="tf:m-0 tf:text-tf-heading tf:font-semibold"
+      >
+        Approval required
+      </p>
+      {/* The operation headline: the mechanical spelling is the ONE
+          pure reading of the tool this surface owns — the row's
+          richer display-authored headline stays on the row. */}
+      <p className="tf:mt-0.5 tf:m-0 tf:truncate tf:font-mono tf:text-xs tf:text-tf-muted-foreground">
+        {_toolDisplayNameOf(card.toolName)}
+      </p>
+      {/* WHO is asking, never WHAT: the sentence below stays the one
+          description of the request. The label is the coworker's brief
+          excerpt, spelled as the group row spells it; a brief of only
+          whitespace excerpts to nothing, so the row's own fallback
+          noun stands in. */}
+      {card.asker.kind === "coworker" ? (
         <p
-          data-tf-approval-title=""
-          className="tf:m-0 tf:text-tf-heading tf:font-semibold"
+          data-tf-approval-asker=""
+          className="tf:mt-1 tf:m-0 tf:truncate tf:text-xs tf:text-tf-muted-foreground"
         >
-          Approval required
+          Asked by a coworker — {_coworkerLabelOf(card.asker.label)}
         </p>
-        {/* The operation headline: the mechanical spelling is the ONE
-            pure reading of the tool this surface owns — the row's
-            richer display-authored headline stays on the row. */}
-        <p className="tf:mt-0.5 tf:m-0 tf:truncate tf:font-mono tf:text-xs tf:text-tf-muted-foreground">
-          {_toolDisplayNameOf(card.toolName)}
-        </p>
-        {/* WHO is asking, never WHAT: the sentence below stays the one
-            description of the request. The label is the coworker's brief
-            excerpt, spelled as the group row spells it; a brief of only
-            whitespace excerpts to nothing, so the row's own fallback
-            noun stands in. */}
-        {card.asker.kind === "coworker" ? (
-          <p
-            data-tf-approval-asker=""
-            className="tf:mt-1 tf:m-0 tf:truncate tf:text-xs tf:text-tf-muted-foreground"
-          >
-            Asked by a coworker — {_coworkerLabelOf(card.asker.label)}
-          </p>
-        ) : null}
-      </div>
-      {/* A coworker's tool_call_id names the CHILD run's call, which never
-          streams in this transcript: no row to show, so no affordance. */}
-      {card.toolCallId !== null && card.asker.kind === "assistant" ? (
-        // Gated on MODEL data alone, stated premise: on a row-less
-        // REST-recovered pause this button renders and its click is a
-        // quiet no-op — an inert-but-present control is the accepted
-        // cost there, pinned by its test. Gating on DOM presence
-        // instead (a layout-effect lookup of the row) would make the
-        // render a function of the mount environment — breaking "two
-        // identical requests render byte-identical banners" and
-        // re-introducing, as a DOM probe, exactly the row join this
-        // reshape deleted.
-        //
-        // shrink-0 + nowrap: the affordance never wraps to two lines
-        // at the narrow measure — the title column beside it owns the
-        // squeeze (its label already truncates).
-        <TfButton
-          variant="ghost"
-          className="tf:shrink-0 tf:whitespace-nowrap"
-          data-tf-approval-show-request=""
-          onClick={onShowRequest}
-        >
-          Show request
-        </TfButton>
       ) : null}
     </div>
   );
@@ -392,80 +352,6 @@ function DecisionButtons({
         </p>
       ) : null}
     </>
-  );
-}
-
-/** The Show-request navigation: reveal the banner's call's transcript
- *  row and scroll it into view. Scoped to the closest
- *  [data-tf-conversation], like the tenant's own focus hand-off
- *  (suspension-surfaces.tsx): surfaces can mount Transcript concurrently
- *  (the page under an open palette), and a root-scoped query would
- *  resolve the FIRST column's row; the root node (document or shadow
- *  root) is the fallback for bare hosts. A missing row (a REST-recovered
- *  pause whose call never reached the transcript, a pruned history) is a
- *  quiet no-op — never a throw. Scroll only, no focus move: the member
- *  is going to READ the request and come back to Approve/Deny, and
- *  yanking focus would exercise the tenant's blur-disarm for nothing. */
-function _showRequest(
-  from: HTMLElement | null,
-  toolCallId: string | null,
-): void {
-  if (from === null || toolCallId === null) {
-    return;
-  }
-  const scope =
-    from.closest("[data-tf-conversation]") ??
-    (from.getRootNode() as ParentNode);
-  const row = scope.querySelector(
-    `[data-tf-tool-call-id="${CSS.escape(toolCallId)}"]`,
-  );
-  if (row === null) {
-    return;
-  }
-  // ESTABLISH the state the navigation needs, don't assume it: the
-  // placement hold is releasable in both directions on purpose — a
-  // member's collapse of a held-open row sticks until a genuine arrival
-  // (tool-row.tsx), and one explicit toggle pins the enclosing fold to
-  // native <details> for its lifetime (use-member-toggle-outrank.ts).
-  // Both rulings stand untouched: this imperative open is a
-  // MEMBER-INITIATED reveal — the member just clicked "Show request" —
-  // which is categorically different from a hold re-asserting itself
-  // over a member's toggle.
-  // It writes only the native open state (each set fires a toggle
-  // event, so the Disclosure mirror stays honest), and the walk covers
-  // the row itself plus every enclosing fold, since a closed fold gives
-  // the row no box for scrollIntoView to target at all.
-  for (
-    let enclosing: HTMLDetailsElement | null = row.closest("details");
-    enclosing !== null;
-    enclosing = enclosing.parentElement?.closest("details") ?? null
-  ) {
-    enclosing.open = true;
-  }
-  // The row's own summary, not the details: an open pending row can be
-  // taller than the viewport, and centering the whole pane would put its
-  // header off screen.
-  const target = row.querySelector(":scope > summary") ?? row;
-  // jsdom has no scrollIntoView (same guard as affordances/highlight.ts).
-  if (typeof target.scrollIntoView !== "function") {
-    return;
-  }
-  target.scrollIntoView({
-    block: "center",
-    inline: "nearest",
-    behavior: _reducedMotionIsOn(target) ? "auto" : "smooth",
-  });
-}
-
-function _reducedMotionIsOn(target: Element): boolean {
-  // Both switches, like every animated surface in the package
-  // (streaming-states.tsx): the OS preference and the host kill switch —
-  // walked from the scroll TARGET so the check is shadow-root correct
-  // for the row being scrolled to.
-  return (
-    (typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches) ||
-    target.closest('[data-reduce-motion="true"]') !== null
   );
 }
 

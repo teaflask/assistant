@@ -1176,9 +1176,29 @@
 [data-tf-markdown] a:hover {
   text-decoration-color: var(--_tf-foreground);
 }
-[data-tf-markdown] img {
-  max-width: 100%;
-  border-radius: var(--_tf-radius);
+/* A markdown image never mounts an <img>: it renders as a label — a
+   link when the reader may open it (markdown-structure.tsx). The muted
+   "Image:" marker says what was withheld; the underline sits on the
+   label alone so the marker reads as a prefix, and the label stays at
+   link weight, never a button. */
+[data-tf-markdown] a[data-tf-markdown-image] {
+  text-decoration: none;
+}
+[data-tf-markdown] a[data-tf-markdown-image] [data-tf-markdown-image-label] {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--_tf-muted-foreground);
+}
+[data-tf-markdown]
+  a[data-tf-markdown-image]:hover
+  [data-tf-markdown-image-label] {
+  text-decoration-color: var(--_tf-foreground);
+}
+[data-tf-markdown] [data-tf-markdown-image-marker] {
+  color: var(--_tf-muted-foreground);
+}
+[data-tf-markdown] span[data-tf-markdown-image] {
+  color: var(--_tf-foreground);
 }
 [data-tf-markdown] li::marker {
   color: var(--_tf-muted-foreground);

@@ -122,7 +122,7 @@ describe("informed consent is carried by the row", () => {
     });
 
     // 1. The pending decision opened its call's row — resolved by the
-    //    same identity hook the banner's Show-request affordance uses.
+    //    row's call-identity hook.
     const row = host.querySelector<HTMLDetailsElement>(
       '[data-tf-tool-call-id="t1"]',
     );

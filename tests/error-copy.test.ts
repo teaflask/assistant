@@ -62,3 +62,15 @@ describe("the refused plan's wait copy", () => {
     expect(userSentenceFor(cannotPay(null, recheck))).toBe(recheck);
   });
 });
+
+describe("the conversation that cannot be opened", () => {
+  it("says it isn't available — never that it no longer exists (it may be another user's)", () => {
+    const gone = new ServingApiError({
+      code: "NOT_FOUND",
+      status: 404,
+      message: "the server's own sentence",
+      retryAfterSeconds: null,
+    });
+    expect(userSentenceFor(gone)).toBe("That conversation isn't available.");
+  });
+});

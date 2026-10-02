@@ -77,7 +77,7 @@ vi.mock("../src/components/message-list", () => ({
 }));
 
 const PK = "pk_test_multi_surface";
-const SHARED_SPEC = { publishableKey: PK, identityProvided: false };
+const SHARED_SPEC = { publishableKey: PK };
 
 function thread(overrides: Record<string, unknown> = {}) {
   return {

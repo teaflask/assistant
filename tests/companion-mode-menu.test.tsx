@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AssistantCompanion } from "../src/components/assistant-companion";
 import { TeaflaskAssistantProvider } from "../src/components/teaflask-assistant-provider";
+import { identityPropsOf } from "./identity-props";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -123,9 +124,7 @@ function renderCompanion(options?: { identified: boolean }): void {
     root.render(
       <TeaflaskAssistantProvider
         publishableKey={publishableKey()}
-        getEndUserToken={
-          options?.identified === true ? () => "end-user-token" : undefined
-        }
+        {...identityPropsOf(options?.identified === true)}
       >
         <AssistantCompanion />
       </TeaflaskAssistantProvider>,

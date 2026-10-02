@@ -129,7 +129,6 @@ export function aStore(overrides: Partial<ConversationStoreDeps> = {}) {
   const store = new AssistantConversationStore({
     session: SESSION,
     publishableKey: PK,
-    identityProvided: false,
     hostCapabilitiesOf: () => ({ navigate: null, executeActionIntent: null }),
     reportError: vi.fn(),
     onTelemetry: vi.fn(),

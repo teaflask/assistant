@@ -30,7 +30,7 @@ export function userSentenceFor(error: unknown): string {
     case "ORCHESTRATION_UNAVAILABLE":
       return "The assistant couldn't be started right now. Please try again in a moment.";
     case "NOT_FOUND":
-      return "That conversation doesn't exist anymore.";
+      return "That conversation isn't available.";
     case "VALIDATION_ERROR":
       return "That message couldn't be sent. Shorten it and try again.";
     default:

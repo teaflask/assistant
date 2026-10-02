@@ -9,6 +9,10 @@ import { parseServingError, ServingApiError } from "./serving-error.js";
 // never sends with an expired token, late enough to keep mints rare.
 const PROACTIVE_REMINT_FRACTION = 0.8;
 
+// Synthesized client-side, never on the wire: the host's userId and the
+// server's verified end user disagree after a retry.
+export const END_USER_ID_MISMATCH = "END_USER_ID_MISMATCH";
+
 export interface TokenSessionConfig {
   publishableKey: string;
   baseUrl: string;
@@ -16,6 +20,10 @@ export interface TokenSessionConfig {
   // visitor token is short-lived, so every re-mint must be able to fetch
   // a fresh end-user token from the host.
   getEndUserToken?: () => string | null | Promise<string | null>;
+  // The user the host says it vouches for. An identified mint naming
+  // someone else is re-minted once (a fresh vouch); a second disagreement
+  // is a setup failure, and the session serves no token for it.
+  expectedEndUserId?: string;
   // The stored anonymous thread to offer for adoption, read fresh on
   // every mint (claim-at-mint; a losing claim is silent by contract).
   claimThreadId?: () => string | null;
@@ -41,6 +49,10 @@ export class TokenSession {
   private visitorToken: string | null = null;
   private mintInFlight: Promise<MintVisitorTokenResponse> | null = null;
   private remintTimer: ReturnType<typeof setTimeout> | null = null;
+  // Bumped by dispose(): a mint that lands under an older generation
+  // writes nothing — no token, no timer, no callback. A counter rather
+  // than a flag because the registry revives a swept session in place.
+  private _generation = 0;
 
   constructor(config: TokenSessionConfig) {
     this.config = config;
@@ -94,7 +106,10 @@ export class TokenSession {
   };
 
   dispose(): void {
+    this._generation += 1;
     this._clearRemintTimer();
+    this.visitorToken = null;
+    this.mintInFlight = null;
   }
 
   private async _currentToken(): Promise<string> {
@@ -119,15 +134,32 @@ export class TokenSession {
   }
 
   private _mintSingleFlight(vouch?: string): Promise<MintVisitorTokenResponse> {
-    this.mintInFlight ??= this._mint(vouch).finally(() => {
-      this.mintInFlight = null;
-    });
+    if (this.mintInFlight === null) {
+      const flight: Promise<MintVisitorTokenResponse> = this._mint(
+        vouch,
+      ).finally(() => {
+        // Only its own flight: a dispose-then-revive may have started
+        // a newer mint this late settle must not evict.
+        if (this.mintInFlight === flight) {
+          this.mintInFlight = null;
+        }
+      });
+      this.mintInFlight = flight;
+    }
     return this.mintInFlight;
   }
 
   // Raw fetch on purpose: the mint IS the session bootstrap, so it cannot
   // ride the generated client (whose mutator requires a minted session).
-  private async _mint(vouch?: string): Promise<MintVisitorTokenResponse> {
+  private async _mint(
+    vouch?: string,
+    retriedForUser = false,
+  ): Promise<MintVisitorTokenResponse> {
+    // Re-read after every await: a dispose can land during the fetch or
+    // the body read alike, and a write after either would outlive the
+    // sweep (and re-arm a timer nothing disposes again).
+    const generation = this._generation;
+    const disposed = () => generation !== this._generation;
     const response = await fetch(
       `${this.config.baseUrl}${getMintVisitorTokenUrl()}`,
       {
@@ -138,10 +170,34 @@ export class TokenSession {
     );
     if (!response.ok) {
       const error = await parseServingError(response);
-      this.config.onMintFailed?.(error);
+      if (!disposed()) {
+        this.config.onMintFailed?.(error);
+      }
       throw error;
     }
     const minted = (await response.json()) as MintVisitorTokenResponse;
+    if (disposed()) {
+      return minted;
+    }
+    if (_namesAnotherUser(minted, this.config.expectedEndUserId)) {
+      if (!retriedForUser) {
+        // Without the probed vouch: the retry asks the host afresh, so a
+        // token minted for the previous user is not sent twice.
+        return this._mint(undefined, true);
+      }
+      // A proactive re-mint reaches here with the earlier token still
+      // cached; it belongs to a user this session no longer names.
+      this.visitorToken = null;
+      const error = new ServingApiError({
+        code: END_USER_ID_MISMATCH,
+        status: response.status,
+        message:
+          "The signed-in user this page names is not the user the server verified. Keep userId in step with the user your backend signs the end-user token for.",
+        retryAfterSeconds: null,
+      });
+      this.config.onMintFailed?.(error);
+      throw error;
+    }
     this.visitorToken = minted.visitor_token;
     this._scheduleProactiveRemint(minted.expires_in);
     this.config.onMinted?.(minted);
@@ -187,6 +243,20 @@ export class TokenSession {
       this.remintTimer = null;
     }
   }
+}
+
+// A server that predates `end_user_id` (or an anonymous mint) is trusted
+// as before — the check only runs when both sides name a user.
+function _namesAnotherUser(
+  minted: MintVisitorTokenResponse,
+  expectedEndUserId: string | undefined,
+): boolean {
+  return (
+    minted.tier === "identified" &&
+    expectedEndUserId !== undefined &&
+    typeof minted.end_user_id === "string" &&
+    minted.end_user_id !== expectedEndUserId
+  );
 }
 
 function _withBearer(requestInit: RequestInit, token: string): RequestInit {

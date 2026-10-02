@@ -11,6 +11,9 @@ export type {
 } from "./appearance/theme.js";
 export {
   TeaflaskAssistantProvider,
+  type TeaflaskAssistantAnonymousProps,
+  type TeaflaskAssistantIdentityProps,
+  type TeaflaskAssistantProviderBaseProps,
   type TeaflaskAssistantProviderProps,
 } from "./components/teaflask-assistant-provider.js";
 // The batteries-included root: provider + companion + palette
@@ -20,6 +23,7 @@ export {
   TeaflaskAssistant,
   type TeaflaskAssistantHandle,
   type TeaflaskAssistantProps,
+  type TeaflaskAssistantRootProps,
 } from "./components/teaflask-assistant.js";
 export {
   AssistantPage,

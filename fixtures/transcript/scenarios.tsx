@@ -93,6 +93,7 @@ const SCENARIO_NAMES = [
   "activity-shelf",
   "suspensions",
   "captions",
+  "image-policy",
 ] as const;
 
 export type ScenarioName = (typeof SCENARIO_NAMES)[number];
@@ -2428,6 +2429,40 @@ function CaptionsScenario() {
   );
 }
 
+// A reply that an injected prompt steered: every image form the markdown
+// knows, each a fetch the browser must never make. The surface shows
+// what renders instead — alt text, a link the reader may open, literal
+// text for raw HTML — in the real transcript row composition.
+const IMAGE_POLICY_MESSAGES: Message[] = [
+  {
+    id: "u-i1",
+    role: "user",
+    content: "Can you show me the steeping chart from the guide?",
+  },
+  {
+    id: "a-i1",
+    role: "assistant",
+    content:
+      "Here is the chart the guide shows for green teas:\n\n" +
+      "![Steeping chart — temperature against time for sencha, gyokuro and hojicha](https://images.example.com/charts/steeping.png)\n\n" +
+      "The same picture sits within the [full guide](https://example.com/guides/steeping): " +
+      "a thermometer ![thermometer](https://images.example.com/icons/thermometer.svg) marks each row, " +
+      "and the badge [![guide badge](https://images.example.com/badges/guide.svg)](https://example.com/guides) links back to it.\n\n" +
+      "Two forms the guide also uses, kept as the text they are:\n\n" +
+      '<img src="https://images.example.com/charts/steeping@2x.png" srcset="https://images.example.com/charts/steeping@2x.png 2x" alt="raw chart">\n\n' +
+      "![](//images.example.com/charts/steeping.png)\n\n" +
+      "Without a description the file name stands in — ![](https://images.example.com/charts/steeping-2026-autumn.png) — " +
+      'and a titled one carries its title as a tooltip: ![cups](https://images.example.com/cups.jpg "Three cups, from the guide").\n\n' +
+      "![A very long description that a careful author might write so the picture is understood without being seen, naming each line and axis in turn](https://images.example.com/charts/steeping-annotated.png)\n\n" +
+      "Steep sencha at 80°C for two minutes, then decant completely.",
+  },
+];
+
+function ImagePolicyScenario() {
+  const rows = transcriptRowsOf(IMAGE_POLICY_MESSAGES, EMPTY_ANCHORS, false);
+  return <MessageList rows={rows} cards={[]} />;
+}
+
 // --- the scenario page ------------------------------------------------------------------------------
 
 const SCENARIOS: Record<ScenarioName, ReactNode> = {
@@ -2453,6 +2488,7 @@ const SCENARIOS: Record<ScenarioName, ReactNode> = {
     </>
   ),
   captions: <CaptionsScenario />,
+  "image-policy": <ImagePolicyScenario />,
 };
 
 export function ScenarioRoot({

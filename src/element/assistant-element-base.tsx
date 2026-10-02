@@ -1,5 +1,5 @@
 // The machinery every teaflask custom element shares: the shadow mount
-// with the package stylesheet adopted exactly once, the seven rich host
+// with the package stylesheet adopted exactly once, the eight rich host
 // properties with the upgrade-order reclaim, the microtask-deferred
 // disconnect (a reparent is a non-event, not a conversation teardown),
 // and the warn-once ledger. Subclasses supply only what differs: the
@@ -9,6 +9,10 @@
 import type { ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
+import {
+  IDENTITY_PAIR_WARNING,
+  identityPairIsHalfSet,
+} from "../core/identity-pair.js";
 import {
   ELEMENT_HOST_PROP_KEYS,
   type ElementHostProps,
@@ -49,12 +53,22 @@ export abstract class AssistantElementBase extends HTMLElement {
     this.#render();
   }
 
+  get userId(): ElementHostProps["userId"] {
+    return this.#hostProps.userId;
+  }
+  set userId(value: ElementHostProps["userId"]) {
+    this.#hostProps.userId = value;
+    this.#render();
+    this.#warnIfStillHalfPaired();
+  }
+
   get getEndUserToken(): ElementHostProps["getEndUserToken"] {
     return this.#hostProps.getEndUserToken;
   }
   set getEndUserToken(value: ElementHostProps["getEndUserToken"]) {
     this.#hostProps.getEndUserToken = value;
     this.#render();
+    this.#warnIfStillHalfPaired();
   }
 
   get actionsAdapter(): ElementHostProps["actionsAdapter"] {
@@ -131,6 +145,7 @@ export abstract class AssistantElementBase extends HTMLElement {
     this.#reactRoot = createRoot(wrapper);
     this.#render();
     this.#warnIfStillKeyless();
+    this.#warnIfStillHalfPaired();
     this.#stopReflection = startHostAttributeReflection(this, wrapper);
   }
 
@@ -226,6 +241,17 @@ export abstract class AssistantElementBase extends HTMLElement {
           `<${this.localName}> has no publishable-key attribute — ` +
             `nothing renders until one is set.`,
         );
+      }
+    });
+  }
+
+  // Same stance for the identity pair: `el.userId = …; el.getEndUserToken
+  // = …;` is the documented wiring, and the two renders it causes commit
+  // as one — so the verdict waits for the task to end, like the key's.
+  #warnIfStillHalfPaired(): void {
+    queueMicrotask(() => {
+      if (this.isConnected && identityPairIsHalfSet(this.#hostProps)) {
+        warnElementMessageOnce(IDENTITY_PAIR_WARNING);
       }
     });
   }

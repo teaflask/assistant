@@ -134,8 +134,9 @@ export interface HostCapabilities {
 export interface ConversationStoreDeps {
   session: TokenSession;
   publishableKey: string;
-  // Whether the host wired getEndUserToken: identified history loads eagerly.
-  identityProvided: boolean;
+  // The host's user, when identified: history loads eagerly for them, and
+  // the stored thread is theirs alone. Absent on an anonymous host.
+  userId?: string;
   // Read fresh at each use: hosts re-wire navigation/actions across renders.
   hostCapabilitiesOf: () => HostCapabilities;
   reportError: (error: Error) => void;

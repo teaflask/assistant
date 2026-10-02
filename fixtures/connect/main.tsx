@@ -24,6 +24,8 @@ import { createRoot } from "react-dom/client";
 
 import { AssistantCompanion } from "../../src/components/assistant-companion";
 import {
+  type TeaflaskAssistantAnonymousProps,
+  type TeaflaskAssistantIdentityProps,
   TeaflaskAssistantProvider,
   useAssistantSession,
 } from "../../src/components/teaflask-assistant-provider";
@@ -45,10 +47,12 @@ function RingConnectButton() {
 // wired at all, so the bench re-mounts rather than faking a re-decide.
 function TokenForm({
   hasToken,
+  tokenUnreadable,
   storageKey,
   legacyUrlScrubbed,
 }: {
   hasToken: boolean;
+  tokenUnreadable: boolean;
   storageKey: string;
   legacyUrlScrubbed: boolean;
 }) {
@@ -73,6 +77,12 @@ function TokenForm({
           works, and the param was just removed from the address bar (it may
           survive in history and anything the URL was shared with). Paste the
           token into the field below instead.
+        </p>
+      ) : null}
+      {tokenUnreadable ? (
+        <p role="alert">
+          The stored end-user JWT could not be read (not a JWT, or no user_id
+          claim), so this tab runs anonymous. Replace or clear it below.
         </p>
       ) : null}
       <p>
@@ -120,15 +130,44 @@ const rootElement = document.getElementById("root");
 if (rootElement === null) {
   throw new Error("The connect bench page has no #root.");
 }
+// The bench trusts the pasted token's own `user_id` claim as the host's
+// userId; a real host reads it from its session, never from the token.
+// Null for a paste that cannot be read: the form must stay reachable to
+// clear it, so the bench runs anonymous and says so rather than throwing.
+function userIdOf(token: string): string | null {
+  try {
+    const [, payload = ""] = token.split(".");
+    const claims: unknown = JSON.parse(
+      atob(payload.replace(/-/g, "+").replace(/_/g, "/")),
+    );
+    const userId =
+      typeof claims === "object" && claims !== null && "user_id" in claims
+        ? claims.user_id
+        : undefined;
+    return typeof userId === "string" ? userId : null;
+  } catch {
+    return null;
+  }
+}
+
+const pastedUserId = endUserToken === null ? null : userIdOf(endUserToken);
+const tokenUnreadable = endUserToken !== null && pastedUserId === null;
+const identity:
+  TeaflaskAssistantIdentityProps | TeaflaskAssistantAnonymousProps =
+  pastedUserId === null
+    ? {}
+    : { userId: pastedUserId, getEndUserToken: () => endUserToken };
+
 createRoot(rootElement).render(
   <StrictMode>
     <TeaflaskAssistantProvider
       publishableKey={publishableKey}
       baseUrl={baseUrl}
-      getEndUserToken={endUserToken === null ? undefined : () => endUserToken}
+      {...identity}
     >
       <TokenForm
         hasToken={endUserToken !== null}
+        tokenUnreadable={tokenUnreadable}
         storageKey={tokenStorageKey}
         legacyUrlScrubbed={scrubbedHref !== null}
       />

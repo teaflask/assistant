@@ -59,6 +59,7 @@ const { FakeTokenSession, FakeConversationStore } = vi.hoisted(() => {
 
 vi.mock("../src/transport/token-session", () => ({
   TokenSession: FakeTokenSession,
+  END_USER_ID_MISMATCH: "END_USER_ID_MISMATCH",
 }));
 vi.mock("../src/core/conversation-store", () => ({
   AssistantConversationStore: FakeConversationStore,
@@ -74,11 +75,13 @@ vi.mock("../src/transport/serving-api", () => ({
 }));
 
 const PK = "pk_test_registry";
+const USER_A = "user-a";
+const USER_B = "user-b";
 
 function specOf(
   overrides: Partial<AssistantSessionSpec> = {},
 ): AssistantSessionSpec {
-  return { publishableKey: PK, identityProvided: false, ...overrides };
+  return { publishableKey: PK, ...overrides };
 }
 
 function registrantOf(
@@ -113,8 +116,11 @@ function storeOf(entry: AssistantSessionEntry): InstanceType<
 
 function mintedOf(
   tier: MintVisitorTokenResponse["tier"],
+  endUserId?: string | null,
 ): MintVisitorTokenResponse {
-  return { visitor_token: "vt", expires_in: 900, tier };
+  return endUserId === undefined
+    ? { visitor_token: "vt", expires_in: 900, tier }
+    : { visitor_token: "vt", expires_in: 900, tier, end_user_id: endUserId };
 }
 
 function servingErrorOf(code: ServingApiError["code"]): ServingApiError {
@@ -158,7 +164,7 @@ describe("identity keying", () => {
 
   it("keeps different identity wiring apart", () => {
     const anonymous = registry.entryFor(specOf());
-    const identified = registry.entryFor(specOf({ identityProvided: true }));
+    const identified = registry.entryFor(specOf({ userId: USER_A }));
     const otherKey = registry.entryFor(specOf({ publishableKey: "pk_other" }));
     expect(identified).not.toBe(anonymous);
     expect(otherKey).not.toBe(anonymous);
@@ -256,9 +262,114 @@ describe("ref-counted lifecycle", () => {
   });
 });
 
+describe("the user boundary", () => {
+  it("a userId change resolves a separate entry and the sweep disposes the old one", async () => {
+    const forA = registry.entryFor(specOf({ userId: USER_A }));
+    const releaseA = registry.retain(forA, registrantOf());
+    sessionOf(forA).config.onMinted?.(mintedOf("identified", USER_A));
+    expect(forA.tier.get()).toBe("identified");
+
+    // The provider re-renders with the next user: a new entry, and the
+    // old one is released the way the retain effect does it.
+    const forB = registry.entryFor(specOf({ userId: USER_B }));
+    registry.retain(forB, registrantOf());
+    releaseA();
+    await sweepsFlushed();
+
+    expect(forB).not.toBe(forA);
+    expect(forB.store).not.toBe(forA.store);
+    expect(forB.session).not.toBe(forA.session);
+    expect(storeOf(forA).disposed).toBe(true);
+    expect(sessionOf(forA).disposed).toBe(true);
+    // Nothing of A rides into B: no cached verdict, no setup error.
+    expect(forB.tier.get()).toBeNull();
+    expect(forB.setupError.get()).toBeNull();
+    expect(storeOf(forB).deps.userId).toBe(USER_B);
+    expect(sessionOf(forB).config.expectedEndUserId).toBe(USER_B);
+  });
+
+  it("a same-userId re-render keeps the entry", () => {
+    const first = registry.entryFor(specOf({ userId: USER_A }));
+    registry.retain(first, registrantOf());
+    const again = registry.entryFor(specOf({ userId: USER_A }));
+    expect(again).toBe(first);
+  });
+
+  it("userId → undefined (sign-out) is a different, anonymous entry", async () => {
+    const signedIn = registry.entryFor(specOf({ userId: USER_A }));
+    const release = registry.retain(signedIn, registrantOf());
+    sessionOf(signedIn).config.onMinted?.(mintedOf("identified", USER_A));
+
+    const signedOut = registry.entryFor(specOf());
+    registry.retain(signedOut, registrantOf());
+    release();
+    await sweepsFlushed();
+
+    expect(signedOut).not.toBe(signedIn);
+    expect(storeOf(signedIn).disposed).toBe(true);
+    expect(signedOut.tier.get()).toBeNull();
+    expect(storeOf(signedOut).deps.userId).toBeUndefined();
+    expect(sessionOf(signedOut).config.getEndUserToken).toBeUndefined();
+  });
+
+  it("an empty userId names nobody: the anonymous entry, no vouch wired", () => {
+    const empty = registry.entryFor(specOf({ userId: "" }));
+    expect(empty).toBe(registry.entryFor(specOf()));
+    expect(sessionOf(empty).config.getEndUserToken).toBeUndefined();
+    expect(sessionOf(empty).config.expectedEndUserId).toBeUndefined();
+    expect(storeOf(empty).deps.userId).toBeUndefined();
+  });
+
+  it("the token session is told the user it must mint for", () => {
+    const entry = registry.entryFor(specOf({ userId: USER_A }));
+    expect(sessionOf(entry).config.expectedEndUserId).toBe(USER_A);
+    expect(storeOf(entry).deps.userId).toBe(USER_A);
+  });
+
+  it("a mint that disagrees with userId after the retry is a setup failure: the surfaces show nothing", () => {
+    const entry = registry.entryFor(specOf({ userId: USER_A }));
+    const registrant = registrantOf();
+    registry.retain(entry, registrant);
+
+    const mismatch = servingErrorOf("END_USER_ID_MISMATCH");
+    sessionOf(entry).config.onMintFailed?.(mismatch);
+
+    expect(entry.setupError.get()).toBe(mismatch);
+    expect(entry.tier.get()).toBeNull();
+    expect(registrant.reportError).toHaveBeenCalledWith(mismatch);
+  });
+
+  it("a mint carrying no end_user_id lands as before", () => {
+    const entry = registry.entryFor(specOf({ userId: USER_A }));
+    registry.retain(entry, registrantOf());
+
+    sessionOf(entry).config.onMinted?.(mintedOf("identified"));
+
+    expect(entry.tier.get()).toBe("identified");
+    expect(entry.setupError.get()).toBeNull();
+  });
+
+  it("the sign-in claim stamps the stored thread with the user who claimed it", () => {
+    writeStoredThread(PK, { threadId: "thread-1", identified: false });
+    const entry = registry.entryFor(specOf({ userId: USER_A }));
+    registry.retain(entry, registrantOf());
+
+    sessionOf(entry).config.onMinted?.(mintedOf("identified", USER_A));
+
+    expect(readStoredThread(PK)).toEqual({
+      threadId: "thread-1",
+      identified: true,
+      userId: USER_A,
+    });
+    // Another user's session offers nothing to claim from it.
+    const forB = registry.entryFor(specOf({ userId: USER_B }));
+    expect(sessionOf(forB).config.claimThreadId?.()).toBeNull();
+  });
+});
+
 describe("the mint verdict", () => {
   it("caches tier for late registrants and pushes it into the store", () => {
-    const entry = registry.entryFor(specOf({ identityProvided: true }));
+    const entry = registry.entryFor(specOf({ userId: USER_A }));
     registry.retain(entry, registrantOf());
 
     sessionOf(entry).config.onMinted?.(mintedOf("identified"));
@@ -302,7 +413,7 @@ describe("the mint verdict", () => {
 
   it("marks the stored thread identified and withdraws the claim", () => {
     writeStoredThread(PK, { threadId: "thread-1", identified: false });
-    const entry = registry.entryFor(specOf({ identityProvided: true }));
+    const entry = registry.entryFor(specOf({ userId: USER_A }));
     registry.retain(entry, registrantOf());
     expect(sessionOf(entry).config.claimThreadId?.()).toBe("thread-1");
 
@@ -422,7 +533,7 @@ describe("arbitration", () => {
   });
 
   it("the token resolver is the first identity-wired registrant, with handover", async () => {
-    const entry = registry.entryFor(specOf({ identityProvided: true }));
+    const entry = registry.entryFor(specOf({ userId: USER_A }));
     registry.retain(entry, registrantOf());
     const releaseSecond = registry.retain(
       entry,
@@ -447,7 +558,7 @@ describe("arbitration", () => {
     // before retain wires the resolver. Answering it anonymously ran the
     // whole session — every thread it created — as a visitor the member
     // never becomes.
-    const entry = registry.entryFor(specOf({ identityProvided: true }));
+    const entry = registry.entryFor(specOf({ userId: USER_A }));
 
     const vouch = sessionOf(entry).config.getEndUserToken?.();
     registry.retain(
@@ -464,7 +575,7 @@ describe("arbitration", () => {
     // triggered the mint hangs for the life of the page.
     vi.useFakeTimers();
     try {
-      const entry = registry.entryFor(specOf({ identityProvided: true }));
+      const entry = registry.entryFor(specOf({ userId: USER_A }));
       const vouch = sessionOf(entry).config.getEndUserToken?.();
       await vi.runAllTimersAsync();
       expect(await vouch).toBeNull();
@@ -476,7 +587,7 @@ describe("arbitration", () => {
   it("never waits once the entry has been retained", async () => {
     // A release leaves no registrant behind, and that is the contract's
     // own fail-open case — not a provider on its way in.
-    const entry = registry.entryFor(specOf({ identityProvided: true }));
+    const entry = registry.entryFor(specOf({ userId: USER_A }));
     const release = registry.retain(
       entry,
       registrantOf({ resolveEndUserToken: () => "token-one" }),
@@ -488,7 +599,7 @@ describe("arbitration", () => {
   });
 
   it("fails open to anonymous when no registrant can resolve identity", async () => {
-    const entry = registry.entryFor(specOf({ identityProvided: true }));
+    const entry = registry.entryFor(specOf({ userId: USER_A }));
     registry.retain(entry, registrantOf());
     expect(await sessionOf(entry).config.getEndUserToken?.()).toBeNull();
   });

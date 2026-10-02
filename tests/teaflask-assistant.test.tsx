@@ -106,7 +106,9 @@ afterEach(() => {
 // ComponentProps rather than the interface: forwardRef contributes the
 // ref attribute, and two cases below render with one.
 function renderRoot(
-  props: Partial<ComponentProps<typeof TeaflaskAssistant>> = {},
+  props: Partial<
+    Omit<ComponentProps<typeof TeaflaskAssistant>, "userId" | "getEndUserToken">
+  > = {},
 ): void {
   act(() => {
     root.render(
