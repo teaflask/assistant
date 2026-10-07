@@ -156,7 +156,7 @@ Next, [connect actions to your API](https://docs.teaflask.com/adapters), [identi
 - [Assistant UI](https://docs.teaflask.com/assistant-ui)
 - [Trust](https://docs.teaflask.com/trust)
 
-Requires `react` and `react-dom` 18.3 or 19, and `use-stick-to-bottom` (npm installs peers for you; the script tag needs none of them). The package is pre-1.0: a breaking change bumps the minor version, and the [changelog](https://github.com/teaflask/assistant/blob/main/CHANGELOG.md) lists what changed in every release. You can inspect the published code on [npm](https://www.npmjs.com/package/@teaflask/assistant?activeTab=code) or [unpkg](https://unpkg.com/@teaflask/assistant/).
+Requires `react` and `react-dom` 18.3 or 19 (the script tag needs neither). The package is pre-1.0: a breaking change bumps the minor version, and the [changelog](https://github.com/teaflask/assistant/blob/main/CHANGELOG.md) lists what changed in every release. Every public export and field is described in the package's types, and the script tag's attributes and properties in its `custom-elements.json`, so your editor and coding agent can read what each one means. You can inspect the published code on [npm](https://www.npmjs.com/package/@teaflask/assistant?activeTab=code) or [unpkg](https://unpkg.com/@teaflask/assistant/).
 
 ## License
 
