@@ -63,7 +63,7 @@ import { TeaflaskAssistant } from "@teaflask/assistant";
 
 ## What your agent can do
 
-- **Take actions.** It calls your API on the user's behalf, with the user's own session. You set every action to Allow, Ask or Deny.
+- **Take actions.** It calls your API on the user's behalf, with the user's own session. You set every action to Allow, Ask or Deny. On a [GraphQL](https://docs.teaflask.com/adapters#graphql) API, it runs them through your app's own client.
 - **Follow your workflows.** Write a procedure once, like how refunds work or when to escalate, and the agent follows it.
 - **Guide users around your app.** It takes people to the right page and highlights what to click.
 - **Fill in forms.** It fills the fields; the user reviews and submits.

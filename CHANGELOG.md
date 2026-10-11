@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.8.0 (2026-10-11)
+
+### Breaking changes
+
+- Changed `TeaflaskAssistantProvider` (`@teaflask/assistant`)
+- Changed `TeaflaskAssistantProviderBaseProps` (`@teaflask/assistant`)
+- Changed `TeaflaskAssistantProviderProps` (`@teaflask/assistant`)
+- Changed `TeaflaskAssistant` (`@teaflask/assistant`)
+- Changed `TeaflaskAssistantProps` (`@teaflask/assistant`)
+- Changed `ActionIntent` (`@teaflask/assistant`)
+- Changed `ActionsAdapter` (`@teaflask/assistant`)
+- Changed `HeadersActionsAdapter` (`@teaflask/assistant`)
+- Changed `RequestActionsAdapter` (`@teaflask/assistant`)
+- Changed `TeaflaskAssistantProvider` (`@teaflask/assistant/activity`)
+- Changed `TeaflaskAssistantProviderBaseProps` (`@teaflask/assistant/activity`)
+- Changed `TeaflaskAssistantProviderProps` (`@teaflask/assistant/activity`)
+- Changed `TeaflaskAssistantProvider` (`@teaflask/assistant/headless`)
+- Changed `TeaflaskAssistantProviderBaseProps` (`@teaflask/assistant/headless`)
+- Changed `TeaflaskAssistantProviderProps` (`@teaflask/assistant/headless`)
+- Changed `ActionsAdapter` (`@teaflask/assistant/headless`)
+- Changed `ActionIntent` (`@teaflask/assistant/headless`)
+- Changed `HeadersActionsAdapter` (`@teaflask/assistant/headless`)
+- Changed `RequestActionsAdapter` (`@teaflask/assistant/headless`)
+
+### New
+
+- Added `ActionIntentGraphQL` (`@teaflask/assistant`)
+- Added `ActionIntentGraphQL` (`@teaflask/assistant/headless`)
+
+### Other
+
+- Fixes and improvements.
+- README updates.
+- Type description updates.
+
+Documentation: https://docs.teaflask.com/assistant-ui
+
+
 ## 0.7.1 (2026-10-08)
 
 ### Other
