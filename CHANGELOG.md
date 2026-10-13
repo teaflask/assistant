@@ -1,5 +1,70 @@
 # Changelog
 
+## 0.9.0 (2026-10-13)
+
+### Breaking changes
+
+- Removed `ASSISTANT_MESSAGE_MAX_CHARS` (`@teaflask/assistant`)
+- Changed `TeaflaskAssistantProvider` (`@teaflask/assistant`)
+- Changed `TeaflaskAssistantProviderBaseProps` (`@teaflask/assistant`)
+- Changed `TeaflaskAssistantProviderProps` (`@teaflask/assistant`)
+- Changed `TeaflaskAssistant` (`@teaflask/assistant`)
+- Changed `TeaflaskAssistantProps` (`@teaflask/assistant`)
+- Changed `ServingApiError` (`@teaflask/assistant`)
+- Changed `ServingErrorCode` (`@teaflask/assistant`)
+- Changed `ServingErrorCodeOnTheWire` (`@teaflask/assistant`)
+- Changed `ToolCallViewModel` (`@teaflask/assistant`)
+- Changed `toolCallPresentationOf` (`@teaflask/assistant`)
+- Changed `ToolCallPresentation` (`@teaflask/assistant`)
+- Changed `actionToolViews` (`@teaflask/assistant`)
+- Changed `resolvedToolViewsOf` (`@teaflask/assistant`)
+- Changed `IconAdapter` (`@teaflask/assistant`)
+- Changed `ResolvedToolView` (`@teaflask/assistant`)
+- Changed `ResolvedToolViewIcon` (`@teaflask/assistant`)
+- Changed `ToolViewAdapter` (`@teaflask/assistant`)
+- Changed `ToolViewCall` (`@teaflask/assistant`)
+- Changed `ToolViewInstance` (`@teaflask/assistant`)
+- Changed `ToolViewProps` (`@teaflask/assistant`)
+- Changed `ToolViewRegistration` (`@teaflask/assistant`)
+- Changed `ToolViewRegistry` (`@teaflask/assistant`)
+- Changed `ToolViewResolution` (`@teaflask/assistant`)
+- Changed `reactToolView` (`@teaflask/assistant`)
+- Changed `settledOutcomeNoteOf` (`@teaflask/assistant`)
+- Changed `settledOutcomeNotesOf` (`@teaflask/assistant`)
+- Changed `settledWithResult` (`@teaflask/assistant`)
+- Changed `TeaflaskAssistantProvider` (`@teaflask/assistant/activity`)
+- Changed `TeaflaskAssistantProviderBaseProps` (`@teaflask/assistant/activity`)
+- Changed `TeaflaskAssistantProviderProps` (`@teaflask/assistant/activity`)
+- Changed `TeaflaskAssistantProvider` (`@teaflask/assistant/headless`)
+- Changed `TeaflaskAssistantProviderBaseProps` (`@teaflask/assistant/headless`)
+- Changed `TeaflaskAssistantProviderProps` (`@teaflask/assistant/headless`)
+- Changed `IconAdapter` (`@teaflask/assistant/headless`)
+- Changed `ToolViewAdapter` (`@teaflask/assistant/headless`)
+- Changed `ToolViewCall` (`@teaflask/assistant/headless`)
+- Changed `ToolViewInstance` (`@teaflask/assistant/headless`)
+- Changed `ToolViewProps` (`@teaflask/assistant/headless`)
+- Changed `ToolViewRegistration` (`@teaflask/assistant/headless`)
+- Changed `ToolViewRegistry` (`@teaflask/assistant/headless`)
+- Changed `useAssistantConversation` (`@teaflask/assistant/headless`)
+- Changed `AssistantConversation` (`@teaflask/assistant/headless`)
+- Changed `ServingApiError` (`@teaflask/assistant/headless`)
+- Changed `ServingErrorCodeOnTheWire` (`@teaflask/assistant/headless`)
+- Changed `useTranscript` (`@teaflask/assistant/headless`)
+- Changed `TranscriptSurface` (`@teaflask/assistant/headless`)
+- Changed `transcriptRowsOf` (`@teaflask/assistant/headless`)
+- Changed `withPendingUserEcho` (`@teaflask/assistant/headless`)
+- Changed `ToolCallRow` (`@teaflask/assistant/headless`)
+- Changed `TranscriptRow` (`@teaflask/assistant/headless`)
+- Changed `TranscriptMarkers` (`@teaflask/assistant/headless`)
+
+### Other
+
+- Fixes and improvements.
+- Type description updates.
+
+Documentation: https://docs.teaflask.com/assistant-ui
+
+
 ## 0.8.0 (2026-10-11)
 
 ### Breaking changes
