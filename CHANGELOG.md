@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.10.0 (2026-10-14)
+
+### Breaking changes
+
+- Changed `TeaflaskAssistantProvider` (`@teaflask/assistant`)
+- Changed `TeaflaskAssistantProviderBaseProps` (`@teaflask/assistant`)
+- Changed `TeaflaskAssistantProviderProps` (`@teaflask/assistant`)
+- Changed `TeaflaskAssistant` (`@teaflask/assistant`)
+- Changed `TeaflaskAssistantProps` (`@teaflask/assistant`)
+- Changed `AssistantTelemetryEvent` (`@teaflask/assistant`)
+- Changed `TeaflaskAssistantProvider` (`@teaflask/assistant/activity`)
+- Changed `TeaflaskAssistantProviderBaseProps` (`@teaflask/assistant/activity`)
+- Changed `TeaflaskAssistantProviderProps` (`@teaflask/assistant/activity`)
+- Changed `TeaflaskAssistantProvider` (`@teaflask/assistant/headless`)
+- Changed `TeaflaskAssistantProviderBaseProps` (`@teaflask/assistant/headless`)
+- Changed `TeaflaskAssistantProviderProps` (`@teaflask/assistant/headless`)
+- Changed `AssistantTelemetryEvent` (`@teaflask/assistant/headless`)
+
+### New
+
+- Added `FailureReasonCode` (`@teaflask/assistant`)
+- Added `TurnFailedTelemetryEvent` (`@teaflask/assistant`)
+- Added `TurnFailedTelemetryEvent` (`@teaflask/assistant/headless`)
+
+### Other
+
+- Fixes and improvements.
+- Type description updates.
+
+Documentation: https://docs.teaflask.com/assistant-ui
+
+
 ## 0.9.0 (2026-10-13)
 
 ### Breaking changes
