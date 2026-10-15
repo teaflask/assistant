@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.10.1 (2026-10-15)
+
+### Other
+
+- Fixes and improvements.
+- Type description updates.
+
+Documentation: https://docs.teaflask.com/assistant-ui
+
+
 ## 0.10.0 (2026-10-14)
 
 ### Breaking changes
