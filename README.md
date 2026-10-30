@@ -64,6 +64,7 @@ import { TeaflaskAssistant } from "@teaflask/assistant";
 ## What your agent can do
 
 - **Take actions.** It calls your API on the user's behalf, with the user's own session. You set every action to Allow, Ask or Deny. On a [GraphQL](https://docs.teaflask.com/adapters#graphql) API, it runs them through your app's own client.
+- **Use your MCP servers.** It calls tools on the MCP servers your organization connects, as the account you connected. You set every tool to Allow, Ask or Deny.
 - **Follow your workflows.** Write a procedure once, like how refunds work or when to escalate, and the agent follows it.
 - **Guide users around your app.** It takes people to the right page and highlights what to click.
 - **Fill in forms.** It fills the fields; the user reviews and submits.
@@ -89,6 +90,7 @@ Everything you'd otherwise build by hand to put an agent in front of your users:
 - The model of your choice, on your own provider key or your user's own plan
 - Conversation history across devices, file attachments, and markdown with code highlighting
 - Anonymous visitors or [signed-in users](https://docs.teaflask.com/identity)
+- Signed-in users can connect their own apps over MCP, and the agent uses them in their conversations
 - Every conversation, action and approval recorded for review
 - Keyboard-complete, screen-reader friendly, and respects reduced motion
 - A React component, a script tag for any other stack, or a headless entry point for your own UI

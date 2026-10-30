@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.11.0 (2026-10-30)
+
+### Breaking changes
+
+- Changed `ServingApiError` (`@teaflask/assistant`)
+- Changed `ServingErrorCode` (`@teaflask/assistant`)
+- Changed `ServingErrorCodeOnTheWire` (`@teaflask/assistant`)
+- Changed `useAssistantConversation` (`@teaflask/assistant/headless`)
+- Changed `AssistantConversation` (`@teaflask/assistant/headless`)
+- Changed `ServingApiError` (`@teaflask/assistant/headless`)
+- Changed `ServingErrorCodeOnTheWire` (`@teaflask/assistant/headless`)
+
+### Other
+
+- Fixes and improvements.
+- README updates.
+- Type description updates.
+
+Documentation: https://docs.teaflask.com/assistant-ui
+
+
 ## 0.10.3 (2026-10-25)
 
 ### Other
